@@ -7,7 +7,7 @@ class PlayersData:
         self.player_size = 20
         self.field = field
         if False:
-            self.field = Field
+            self.current_scene = Field
         self.center_center_football = self.field.football_field_width / 2 - self.player_size / 2
         self.center_center_flag = self.field.flag_field_width / 2 - self.player_size / 2
         self.kickoff_line = 7.5 * self.field.football_ten_yard - self.player_size / 2
@@ -17,7 +17,7 @@ class PlayersData:
         self.third_line_ret_team = self.field.football_field_length_center - self.player_size / 2 -\
                                    3 * self.field.football_ten_yard
         self.offence_football = [['offence', i] for i in range(11)]
-        self.additional_player_football = ('offence', '11', 'WR', self.center_center_football + 90, - self.player_size / 2 + 13, self.player_size, self.player_size)
+        self.additional_player_football = ('offence_additional', '11', 'WR', self.center_center_football + 90, - self.player_size / 2 + 13, self.player_size, self.player_size)
         self.defence_football = [['defence', i] for i in range(11)]
         self.kickoff_football = [['kickoff', i] for i in range(11)]
         self.kickoff_return_football = [['kick_ret', i] for i in range(11)]
@@ -326,7 +326,7 @@ class PlayersData:
              -self.player_size / 2 + self.field.flag_one_yard * 5,
              self.player_size, self.player_size), )
 
-        self.additional_player_flag = ('offence', 6, 'WR',
+        self.additional_player_flag = ('offence_additional', 6, 'WR',
                                        self.center_center_football + self.field.flag_width_one_yard * 2.5,
                                        - self.player_size / 2, self.player_size, self.player_size)
 

@@ -2,6 +2,8 @@ from PyQt5.Qt import *
 
 
 class FinalActionBlock(QGraphicsPolygonItem):
+    pen_hover_color = QColor('#ffcb30')
+
     def __init__(self, angle, pos, pen, player, mode):
         super().__init__()
         self.player = player
@@ -17,8 +19,9 @@ class FinalActionBlock(QGraphicsPolygonItem):
         self.h = 14
         self.pos = pos
         self.line = QLineF(QPointF(pos + QPointF(0, -7)), QPointF(pos + QPointF(0, 7)))
-        # self.hover = False
-        # self.setAcceptHoverEvents(True)
+        self.setAcceptHoverEvents(True)
+        self.hover = False
+        self.setZValue(0)
         self.object_name = f'{self.player.position}_{self.action}_{self.action_number}'
 
     def boundingRect(self):  # Если не переопределить этот метод, при приближенном зуме итем не отображается
@@ -27,9 +30,11 @@ class FinalActionBlock(QGraphicsPolygonItem):
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.HighQualityAntialiasing)
         # painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-        # painter.setBrush(QBrush(QColor(self.color)))
+        if self.hover:
+            painter.setPen(QPen(self.pen_hover_color, self.pen.width(), self.pen.style(), self.pen.capStyle(), self.pen.joinStyle()))
+        else:
+            painter.setPen(self.pen)
         painter.translate(self.pos)
-        painter.setPen(self.pen)
         painter.rotate(-self.angle)
         painter.translate(-self.pos)
         painter.drawLine(self.line)

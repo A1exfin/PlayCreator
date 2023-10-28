@@ -1,8 +1,12 @@
 from PyQt5.Qt import *
+from Item_player import Player
 
 
 class FinalActionArrow(QGraphicsPolygonItem):
-    def __init__(self, angle, pos, pen, player, mode):
+    pen_hover_color = QColor('#ffcb30')
+    brush_hover_color = QColor('#ffcb30')
+
+    def __init__(self, angle: int, pos: QPointF, pen: QPen, player: Player, mode: str):
         super().__init__()
         self.player = player
         self.action_number = player.current_action_number
@@ -17,8 +21,9 @@ class FinalActionArrow(QGraphicsPolygonItem):
         self.h = 8
         self.pos = pos
         self.polygon = QPolygonF([QPointF(pos + QPointF(0, 0)), QPointF(pos + QPointF(-10, 4)), QPointF(pos + QPointF(-10, -4))])
-        # self.setAcceptHoverEvents(True)
-        # self.hover = False
+        self.setAcceptHoverEvents(True)
+        self.hover = False
+        self.setZValue(0)
         self.object_name = f'{self.player.position}_{self.action}_{self.action_number}'
 
     def boundingRect(self):  # Если не переопределить этот метод, при приближенном зуме итем не отображается
@@ -27,23 +32,21 @@ class FinalActionArrow(QGraphicsPolygonItem):
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.HighQualityAntialiasing)
         # painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-        painter.setBrush(QBrush(self.pen.color()))
+        if self.hover:
+            painter.setPen(QPen(self.pen_hover_color, self.pen.width(), self.pen.style(), self.pen.capStyle(), self.pen.joinStyle()))
+            painter.setBrush(self.brush_hover_color)
+        else:
+            painter.setPen(self.pen)
+            painter.setBrush(QBrush(self.pen.color()))
         painter.translate(self.pos)
-        painter.setPen(self.pen)
         painter.rotate(-self.angle)
         painter.translate(-self.pos)
         painter.drawPolygon(self.polygon)
-        # if self.hover:
-        #     painter.setBrush(QBrush(QColor(Qt.red)))
-        #     self.setPen(QPen(QColor(Qt.red), self.pen.width()))
-        # else:
-        #     self.setPen(QPen(self.pen))
-        #     painter.setBrush(QBrush(self.pen.color()))
 
     # def hoverEnterEvent(self, event):
     #     for action in self.player.actions[f'action_number:{self.action_number}']:
     #         action.hover = True
-
+    #
     # def hoverLeaveEvent(self, event):
     #     for action in self.player.actions[f'action_number:{self.action_number}']:
     #         action.hover = False

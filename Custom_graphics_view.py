@@ -14,7 +14,7 @@ class CustomGraphicsView(QGraphicsView):
         # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setMinimumSize(QtCore.QSize(859, 741))
-        self.zoom_factor = 1.25
+        self.zoom_factor = 1.2
         # self.set_current_zoom()
         self.current_zoom = 60
         self.zoom_min = 0
@@ -22,32 +22,19 @@ class CustomGraphicsView(QGraphicsView):
 
     def wheelEvent(self, event):
         """Увеличение или уменьшение масштаба."""
-        zoomInFactor = self.zoom_factor
-        zoomOutFactor = 1 / self.zoom_factor
-        # Zoom
         if event.angleDelta().y() > 0 and event.modifiers() == Qt.ControlModifier:
             if self.current_zoom < self.zoom_max:
-                zoomFactor = zoomInFactor
-                # self.current_zoom += 20
-                self.increase_zoom()
-                self.scale(zoomFactor, zoomFactor)
+                zoom_in_value = self.current_zoom + 20
+                self.set_current_zoom(zoom_in_value)
         elif event.angleDelta().y() < 0 and event.modifiers() == Qt.ControlModifier:
             if self.current_zoom > self.zoom_min:
-                zoomFactor = zoomOutFactor
-                # self.current_zoom -= 20
-                self.decrease_zoom()
-                self.scale(zoomFactor, zoomFactor)
+                zoom_out_value = self.current_zoom - 20
+                self.set_current_zoom(zoom_out_value)
         else:
             super().wheelEvent(event)
 
-    def increase_zoom(self):
-        self.current_zoom += 20
+    def set_current_zoom(self, zoom_value):
+        zoom_index = (zoom_value - self.current_zoom) / 20
+        self.scale(self.zoom_factor ** zoom_index, self.zoom_factor ** zoom_index)
+        self.current_zoom = zoom_value
         self.zoomChanged.emit(self.current_zoom)
-
-    def decrease_zoom(self):
-        self.current_zoom -= 20
-        self.zoomChanged.emit(self.current_zoom)
-
-    # def set_current_zoom(self):
-    #     self.current_zoom = 60
-    #     self.valueChanged.emit(self.current_zoom)

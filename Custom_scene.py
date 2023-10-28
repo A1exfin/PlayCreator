@@ -2,13 +2,22 @@ from math import acos, degrees, radians, sqrt, cos, sin
 from PyQt5.Qt import *
 from PyQt5.QtCore import Qt
 from Item_line_action import ActionLine
-from Item_rect import Rect
-from Item_ellipse import Ellipse
 from Item_final_action_arrow import FinalActionArrow
 from Item_final_action_block import FinalActionBlock
-from Item_field_triangle import FieldTriangle
-from Item_field_number import FieldNumber
+from Scene_items import Rect, Ellipse, FieldTriangle, FieldNumber
 from ProxyLabel import ProxyWidget
+from Data_field import FieldData
+
+from datetime import datetime
+
+
+def timeit(func):
+    def wrapper(*args, **kwargs):
+        start = datetime.now()
+        result = func(*args, **kwargs)
+        print(datetime.now() - start)
+        return result
+    return wrapper
 
 
 class Field(QGraphicsScene):
@@ -16,47 +25,25 @@ class Field(QGraphicsScene):
     labelEditingFinished = pyqtSignal(object)
     modeChanged = pyqtSignal(str)
 
-    def __init__(self, main_window):
+    def __init__(self, main_window: QMainWindow, field_data: FieldData, field_type: str):
         super().__init__()
-        # football field settings
-        self.football_field_length = int(1200)
-        self.football_field_width = int(534)
-        self.football_field_length_center = int(self.football_field_length / 2)
-        self.football_hash_center = self.football_field_width / 2.65
-        self.side_five_yard_line_length = 20
-        self.football_ten_yard = int(self.football_field_length / 12)
-        self.football_five_yard = int(self.football_field_length / 24)
-        self.football_one_yard = int(self.football_field_length / 120)
-        self.football_width_one_yard = self.football_field_width / 53
-        # flag-football settings
-        self.flag_field_length = int(1400)
-        self.flag_field_width = int(508)
-        self.flag_ten_yard = int(self.flag_field_length / 7)
-        self.flag_five_yard = int(self.flag_field_length / 14)
-        self.flag_one_yard = int(self.flag_field_length / 70)
-        self.flag_field_center = int(self.flag_field_length / 2)
-        self.flag_hash_center = self.flag_field_width / 2
-        self.flag_width_one_yard = self.flag_field_width / 25
-        # both field settings
-        self.border_width = 4
-        self.black_color = (0, 0, 0, 255)
-        self.gray_color_light = (228, 228, 228, 255)
-        self.gray_color_dark = (140, 140, 140, 255)
-        self.line_width_ten_yard_lines = 3
-        self.line_width_other = 2
-        self.ten_yard_lines_style = QPen(QColor(*self.gray_color_dark), self.line_width_other)
-        self.end_zone_center_lines_style = QPen(QColor(*self.black_color), self.line_width_ten_yard_lines)
-        self.border_line_style = QPen(QColor(*self.black_color), self.border_width)
-        # self.border_line_style = QPen(QColor(Qt.red), self.border_width)
-        self.other_lines_style = QPen(QColor(*self.gray_color_light), self.line_width_other)
-        self.hash_line_length = 10
-        self.side_one_yard_line_length = 14
+        self.field_data = field_data
+        self.field_type = field_type
 
         self.current_field_border = None  # Границы текущего поля, используются при проверке попадания event внутрь поля при рисовании
+
+        if self.field_type == 'football':
+            self.view_point = QPointF(self.field_data.football_field_width / 2, self.field_data.football_field_length / 2)
+            self.draw_football_field()
+        elif self.field_type == 'flag':
+            self.view_point = QPointF(self.field_data.flag_field_width / 2, self.field_data.flag_field_length / 2)
+            self.draw_flag_field()
+        self.zoom = 60  # Значение приближения сцены
 
         self.main_window = main_window
 
         self.first_team_placed = None
+        self.first_team_position = None
         self.first_team_players = []
         self.additional_offence_player = None
         self.second_team_placed = None
@@ -136,7 +123,23 @@ class Field(QGraphicsScene):
             self.config['pen_style'] = Qt.PenStyle.DashLine
         else:
             self.config['pen_style'] = Qt.PenStyle.SolidLine
-        # self.set_players_flags()
+        # for figure in self.figures:
+        #     if self.mode == 'erase':
+        #         figure.setCursor(QCursor(QPixmap('Cursors/eraser.cur'), 0, 0))
+        #     else:
+        #         figure.setCursor(Qt.ArrowCursor)
+        # for player in self.first_team_players:
+        #     for action in player.actions.values():
+        #         for line in action:
+        #             if self.mode == 'erase':
+        #                 line.setCursor(QCursor(QPixmap('Cursors/eraser.cur'), 0, 0))
+        #             else:
+        #                 line.setCursor(Qt.ArrowCursor)
+        # for label in self.labels:
+        #     if self.mode == 'erase':
+        #         label.setCursor(QCursor(QPixmap('Cursors/eraser.cur'), 0, 0))
+        #     else:
+        #         label.setCursor(Qt.SizeAllCursor)
         self.modeChanged.emit(self.mode)
         self.update()
 
@@ -175,8 +178,8 @@ class Field(QGraphicsScene):
         elif self.mode == 'route' or self.mode == 'block' or self.mode == 'motion':
             if self.allow_painting:
                 self.action_mouseMoveEvent(event)
-            # else:
-            #     super().mouseMoveEvent(event)
+            else:
+                super().mouseMoveEvent(event)
         elif self.mode == 'erase':
             super().mouseMoveEvent(event)
         elif self.mode == 'rectangle' or self.mode == 'ellipse':
@@ -241,6 +244,7 @@ class Field(QGraphicsScene):
                 self.current_action_lines.clear()
                 self.current_player.current_action_number += 1
             self.current_player.setSelected(False)
+            self.current_player.hover = False
             self.current_player.ungrabMouse()
             self.current_player = None
             self.current_line = None
@@ -279,7 +283,7 @@ class Field(QGraphicsScene):
     def get_start_pos(self, start_pos, finish_pos):
         '''Расчёт начальной точки, находящейся на границе игрока, при рисовании первой линии действия игрока'''
         angle = self.get_angle(start_pos, finish_pos)
-        r = self.current_player.w / 2
+        r = self.current_player.width / 2
         x = cos(radians(angle)) * r
         y = sin(radians(angle)) * r
         self.start_pos = QPointF(start_pos.x() + x, start_pos.y() - y)
@@ -429,19 +433,20 @@ class Field(QGraphicsScene):
             return True
         return False
 
-    def create_football_field_full(self):
+    def draw_football_field(self):
         '''Отрисовка всего футбольного поля размерами 120 ярдов на 53 ярда. Расстояние между хэш-марками 13 ярдов.
         Пропорция length / width должна быть 1200 / 534'''
         # Установка размеров текущего поля, необходимо для проверки границ поля при рисовании действий игроков
-        self.current_field_border = [self.football_field_width, self.football_field_length]
-        self.addRect(QRectF(0, 0, self.football_field_width, self.football_field_length), QPen(Qt.white), QBrush(QColor(Qt.white)))
+        self.current_field_border = [self.field_data.football_field_width, self.field_data.football_field_length]
+        self.setSceneRect(0, 0, self.field_data.football_field_width, self.field_data.football_field_length)
+        self.addRect(QRectF(0, 0, self.field_data.football_field_width, self.field_data.football_field_length), QPen(Qt.white), QBrush(QColor(Qt.white)))
         # Отрисовка номеров
-        numbers_left_1 = [[f'{i}', 90, self.gray_color_light, 14 * self.football_width_one_yard] for i in range(10, 60, 10)]
-        numbers_left_2 = [[f'{i}', 90, self.gray_color_light, 14 * self.football_width_one_yard] for i in range(40, 0, -10)]
-        numbers_right_1 = [[f'{i}', -90, self.gray_color_light, 40 * self.football_width_one_yard] for i in range(10, 60, 10)]
-        numbers_right_2 = [[f'{i}', -90, self.gray_color_light, 40 * self.football_width_one_yard] for i in range(40, 0, -10)]
-        numbers_left_y = [16.9 * self.football_one_yard + i * self.football_ten_yard for i in range(9)]
-        numbers_right_y = [23 * self.football_one_yard + i * self.football_ten_yard for i in range(9)]
+        numbers_left_1 = [[f'{i}', 90, self.field_data.gray_color_light, 14 * self.field_data.football_width_one_yard] for i in range(10, 60, 10)]
+        numbers_left_2 = [[f'{i}', 90, self.field_data.gray_color_light, 14 * self.field_data.football_width_one_yard] for i in range(40, 0, -10)]
+        numbers_right_1 = [[f'{i}', -90, self.field_data.gray_color_light, 40 * self.field_data.football_width_one_yard] for i in range(10, 60, 10)]
+        numbers_right_2 = [[f'{i}', -90, self.field_data.gray_color_light, 40 * self.field_data.football_width_one_yard] for i in range(40, 0, -10)]
+        numbers_left_y = [16.9 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard for i in range(9)]
+        numbers_right_y = [23 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard for i in range(9)]
         # self.addRect(0, 0, self.football_field_width, self.football_field_length, QPen(Qt.transparent), QBrush(Qt.green))
         for i, number in enumerate(numbers_left_1):
             self.addItem(FieldNumber(*number, numbers_left_y[i]))
@@ -454,93 +459,94 @@ class Field(QGraphicsScene):
         # Отрисовка стрелок около номеров
         polygon_top = QPolygonF([QPointF(5, 0), QPointF(0, 10), QPointF(10, 10)])
         polygon_bot = QPolygonF([QPointF(5, 10), QPointF(0, 0), QPointF(10, 0)])
-        arrows_right_coordinates_1 = [[43 * self.football_width_one_yard, 16 * self.football_one_yard + i * self.football_ten_yard] for i in range(4)]
-        arrows_left_coordinates_1 = [[10 * self.football_width_one_yard, 16 * self.football_one_yard + i * self.football_ten_yard] for i in range(4)]
-        arrows_right_coordinates_2 = [[43 * self.football_width_one_yard, 23 * self.football_one_yard + i * self.football_ten_yard] for i in range(5, 9)]
-        arrows_left_coordinates_2 = [[10 * self.football_width_one_yard, 23 * self.football_one_yard + i * self.football_ten_yard] for i in range(5, 9)]
+        arrows_right_coordinates_1 = [[43 * self.field_data.football_width_one_yard, 16 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard] for i in range(4)]
+        arrows_left_coordinates_1 = [[10 * self.field_data.football_width_one_yard, 16 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard] for i in range(4)]
+        arrows_right_coordinates_2 = [[43 * self.field_data.football_width_one_yard, 23 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard] for i in range(5, 9)]
+        arrows_left_coordinates_2 = [[10 * self.field_data.football_width_one_yard, 23 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard] for i in range(5, 9)]
         for coordinates in arrows_left_coordinates_1:
-            self.addItem(FieldTriangle(polygon_top, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_top, self.field_data.gray_color_light, *coordinates))
         for coordinates in arrows_left_coordinates_2:
-            self.addItem(FieldTriangle(polygon_bot, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_bot, self.field_data.gray_color_light, *coordinates))
         for coordinates in arrows_right_coordinates_1:
-            self.addItem(FieldTriangle(polygon_top, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_top, self.field_data.gray_color_light, *coordinates))
         for coordinates in arrows_right_coordinates_2:
-            self.addItem(FieldTriangle(polygon_bot, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_bot, self.field_data.gray_color_light, *coordinates))
 
-        self.addLine(0, self.football_ten_yard,
-                     self.football_field_width, self.football_ten_yard,
-                     self.end_zone_center_lines_style)  # end zone line top
-        self.addLine(0, self.football_field_length - self.football_ten_yard,
-                     self.football_field_width, self.football_field_length - self.football_ten_yard,
-                     self.end_zone_center_lines_style)  # end zone line bot
-        self.addLine(0, self.football_field_length_center,
-                     self.football_field_width, self.football_field_length_center,
-                     self.end_zone_center_lines_style)  # field center line
+        self.addLine(0, self.field_data.football_ten_yard,
+                     self.field_data.football_field_width, self.field_data.football_ten_yard,
+                     self.field_data.end_zone_center_lines_style)  # end zone line top
+        self.addLine(0, self.field_data.football_field_length - self.field_data.football_ten_yard,
+                     self.field_data.football_field_width, self.field_data.football_field_length - self.field_data.football_ten_yard,
+                     self.field_data.end_zone_center_lines_style)  # end zone line bot
+        self.addLine(0, self.field_data.football_field_length_center,
+                     self.field_data.football_field_width, self.field_data.football_field_length_center,
+                     self.field_data.end_zone_center_lines_style)  # field center line
 
-        for j in range(2 * self.football_ten_yard,
-                       self.football_field_length,
-                       self.football_field_length_center - self.football_ten_yard):  # 10 yard lines
+        for j in range(2 * self.field_data.football_ten_yard,
+                       self.field_data.football_field_length,
+                       self.field_data.football_field_length_center - self.field_data.football_ten_yard):  # 10 yard lines
             for i in range(0,
-                           self.football_field_length_center - 2 * self.football_ten_yard,
-                           self.football_ten_yard):
+                           self.field_data.football_field_length_center - 2 * self.field_data.football_ten_yard,
+                           self.field_data.football_ten_yard):
                 self.addLine(0, j + i,
-                             self.football_field_width, j + i,
-                             self.ten_yard_lines_style)
+                             self.field_data.football_field_width, j + i,
+                             self.field_data.ten_yard_lines_style)
 
-        for i in range(self.football_ten_yard + self.football_five_yard,
-                       self.football_field_length - self.football_ten_yard,
-                       self.football_ten_yard):  # 5 yard lines + 5 yard lines hash
-            self.addLine(0, i, self.football_field_width, i, self.other_lines_style)  # 5 yard lines
+        for i in range(self.field_data.football_ten_yard + self.field_data.football_five_yard,
+                       self.field_data.football_field_length - self.field_data.football_ten_yard,
+                       self.field_data.football_ten_yard):  # 5 yard lines + 5 yard lines hash
+            self.addLine(0, i, self.field_data.football_field_width, i, self.field_data.other_lines_style)  # 5 yard lines
 
-        for j in range(self.football_ten_yard,
-                       self.football_field_length - self.football_ten_yard,
-                       self.football_five_yard):  # 1 yard lines + 1 yard lines hash
-            for i in range(self.football_one_yard,
-                           self.football_five_yard,
-                           self.football_one_yard):
+        for j in range(self.field_data.football_ten_yard,
+                       self.field_data.football_field_length - self.field_data.football_ten_yard,
+                       self.field_data.football_five_yard):  # 1 yard lines + 1 yard lines hash
+            for i in range(self.field_data.football_one_yard,
+                           self.field_data.football_five_yard,
+                           self.field_data.football_one_yard):
                 self.addLine(0, j + i,
-                             self.side_one_yard_line_length, j + i,
-                             self.other_lines_style)  # 1 yard lines left
-                self.addLine(self.football_field_width - self.side_one_yard_line_length, j + i,
-                             self.football_field_width, j + i,
-                             self.other_lines_style)   # 1 yard lines right
-                self.addLine(QLineF((self.football_hash_center - self.hash_line_length / 2), j + i,
-                                    (self.football_hash_center + self.hash_line_length / 2), j + i),
-                                    self.other_lines_style)  # 1 yard lines left hash
-                self.addLine(QLineF(self.football_field_width - (self.football_hash_center - self.hash_line_length / 2), j + i,
-                                    (self.football_field_width - (self.football_hash_center + self.hash_line_length / 2)), j + i),
-                                    self.other_lines_style)   # 1 yard lines right hash
+                             self.field_data.side_one_yard_line_length, j + i,
+                             self.field_data.other_lines_style)  # 1 yard lines left
+                self.addLine(self.field_data.football_field_width - self.field_data.side_one_yard_line_length, j + i,
+                             self.field_data.football_field_width, j + i,
+                             self.field_data.other_lines_style)   # 1 yard lines right
+                self.addLine(QLineF((self.field_data.football_hash_center - self.field_data.hash_line_length / 2), j + i,
+                                    (self.field_data.football_hash_center + self.field_data.hash_line_length / 2), j + i),
+                                    self.field_data.other_lines_style)  # 1 yard lines left hash
+                self.addLine(QLineF(self.field_data.football_field_width - (self.field_data.football_hash_center - self.field_data.hash_line_length / 2), j + i,
+                                    (self.field_data.football_field_width - (self.field_data.football_hash_center + self.field_data.hash_line_length / 2)), j + i),
+                                    self.field_data.other_lines_style)   # 1 yard lines right hash
 
-        self.addLine(QLineF(self.football_field_width / 2 - self.hash_line_length / 2,
-                            self.football_ten_yard + 3 * self.football_one_yard,
-                            self.football_field_width / 2 + self.hash_line_length / 2,
-                            self.football_ten_yard + 3 * self.football_one_yard),
-                            self.other_lines_style)  # conversion line top
-        self.addLine(QLineF(self.football_field_width / 2 - self.hash_line_length / 2,
-                            self.football_field_length - (self.football_ten_yard + 3 * self.football_one_yard),
-                            self.football_field_width / 2 + self.hash_line_length / 2,
-                            self.football_field_length - (self.football_ten_yard + 3 * self.football_one_yard)),
-                            self.other_lines_style)  # conversion line bot
+        self.addLine(QLineF(self.field_data.football_field_width / 2 - self.field_data.hash_line_length / 2,
+                            self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard,
+                            self.field_data.football_field_width / 2 + self.field_data.hash_line_length / 2,
+                            self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard),
+                            self.field_data.other_lines_style)  # conversion line top
+        self.addLine(QLineF(self.field_data.football_field_width / 2 - self.field_data.hash_line_length / 2,
+                            self.field_data.football_field_length - (self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard),
+                            self.field_data.football_field_width / 2 + self.field_data.hash_line_length / 2,
+                            self.field_data.football_field_length - (self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard)),
+                            self.field_data.other_lines_style)  # conversion line bot
 
-        self.addRect(0, 0, self.football_field_width, self.football_field_length, self.border_line_style)  # border
+        self.addRect(0, 0, self.field_data.football_field_width, self.field_data.football_field_length, self.field_data.border_line_style)  # border
 
-    def create_flag_field_full(self):
+    def draw_flag_field(self):
         '''Отрисовка всего поля для флаг футбола размерами 70 ярдов на 25 ярдов.
         Пропорция length / width должна быть 700 / 250'''
         # Установка размеров текущего поля, необходимо для проверки границ поля при рисовании действий игроков
-        self.current_field_border = [self.flag_field_width, self.flag_field_length]
-        self.addRect(QRectF(0, 0, self.flag_field_width, self.flag_field_length), QPen(Qt.white), QBrush(QColor(Qt.white)))
+        self.current_field_border = [self.field_data.flag_field_width, self.field_data.flag_field_length]
+        self.setSceneRect(0, 0, self.field_data.flag_field_width, self.field_data.flag_field_length)
+        self.addRect(QRectF(0, 0, self.field_data.flag_field_width, self.field_data.flag_field_length), QPen(Qt.white), QBrush(QColor(Qt.white)))
         # Отрисовка номеров
-        numbers_left = (('10', 90, self.gray_color_light, 6 * self.flag_width_one_yard),
-                        ('20', 90, self.gray_color_light, 6 * self.flag_width_one_yard),
-                        ('20', 90, self.gray_color_light, 6 * self.flag_width_one_yard),
-                        ('10', 90, self.gray_color_light, 6 * self.flag_width_one_yard),)
-        numbers_right = (('10', -90, self.gray_color_light, 19 * self.flag_width_one_yard),
-                         ('20', -90, self.gray_color_light, 19 * self.flag_width_one_yard),
-                         ('20', -90, self.gray_color_light, 19 * self.flag_width_one_yard),
-                         ('10', -90, self.gray_color_light, 19 * self.flag_width_one_yard),)
-        numbers_left_y = [18.5 * self.flag_one_yard + i * self.flag_ten_yard for i in range(4)]
-        numbers_right_y = [21.5 * self.flag_one_yard + i * self.flag_ten_yard for i in range(4)]
+        numbers_left = (('10', 90, self.field_data.gray_color_light, 6 * self.field_data.flag_width_one_yard),
+                        ('20', 90, self.field_data.gray_color_light, 6 * self.field_data.flag_width_one_yard),
+                        ('20', 90, self.field_data.gray_color_light, 6 * self.field_data.flag_width_one_yard),
+                        ('10', 90, self.field_data.gray_color_light, 6 * self.field_data.flag_width_one_yard),)
+        numbers_right = (('10', -90, self.field_data.gray_color_light, 19 * self.field_data.flag_width_one_yard),
+                         ('20', -90, self.field_data.gray_color_light, 19 * self.field_data.flag_width_one_yard),
+                         ('20', -90, self.field_data.gray_color_light, 19 * self.field_data.flag_width_one_yard),
+                         ('10', -90, self.field_data.gray_color_light, 19 * self.field_data.flag_width_one_yard),)
+        numbers_left_y = [18.5 * self.field_data.flag_one_yard + i * self.field_data.flag_ten_yard for i in range(4)]
+        numbers_right_y = [21.5 * self.field_data.flag_one_yard + i * self.field_data.flag_ten_yard for i in range(4)]
         for i, number in enumerate(numbers_left):
             self.addItem(FieldNumber(*number, numbers_left_y[i]))
         for i, number in enumerate(numbers_right):
@@ -548,31 +554,31 @@ class Field(QGraphicsScene):
         # Отрисовка стрелок около номеров
         polygon_top = QPolygonF([QPointF(5, 0), QPointF(0, 10), QPointF(10, 10)])
         polygon_bot = QPolygonF([QPointF(5, 10), QPointF(0, 0), QPointF(10, 0)])
-        arrows_left_coordinates_1 = [[4 * self.flag_width_one_yard, 18 * self.flag_one_yard + i * self.flag_ten_yard] for i in range(2)]
-        arrows_left_coordinates_2 = [[4 * self.flag_width_one_yard, 11.5 * self.flag_one_yard + i * self.flag_ten_yard] for i in range(3, 5)]
-        arrows_right_coordinates_1 = [[20.5 * self.flag_width_one_yard, 18 * self.flag_one_yard + i * self.flag_ten_yard] for i in range(2)]
-        arrows_right_coordinates_2 = [[20.5 * self.flag_width_one_yard, 11.5 * self.flag_one_yard + i * self.flag_ten_yard] for i in range(3, 5)]
+        arrows_left_coordinates_1 = [[4 * self.field_data.flag_width_one_yard, 18 * self.field_data.flag_one_yard + i * self.field_data.flag_ten_yard] for i in range(2)]
+        arrows_left_coordinates_2 = [[4 * self.field_data.flag_width_one_yard, 11.5 * self.field_data.flag_one_yard + i * self.field_data.flag_ten_yard] for i in range(3, 5)]
+        arrows_right_coordinates_1 = [[20.5 * self.field_data.flag_width_one_yard, 18 * self.field_data.flag_one_yard + i * self.field_data.flag_ten_yard] for i in range(2)]
+        arrows_right_coordinates_2 = [[20.5 * self.field_data.flag_width_one_yard, 11.5 * self.field_data.flag_one_yard + i * self.field_data.flag_ten_yard] for i in range(3, 5)]
         for coordinates in arrows_left_coordinates_1:
-            self.addItem(FieldTriangle(polygon_top, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_top, self.field_data.gray_color_light, *coordinates))
         for coordinates in arrows_left_coordinates_2:
-            self.addItem(FieldTriangle(polygon_bot, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_bot, self.field_data.gray_color_light, *coordinates))
         for coordinates in arrows_right_coordinates_1:
-            self.addItem(FieldTriangle(polygon_top, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_top, self.field_data.gray_color_light, *coordinates))
         for coordinates in arrows_right_coordinates_2:
-            self.addItem(FieldTriangle(polygon_bot, self.gray_color_light, *coordinates))
+            self.addItem(FieldTriangle(polygon_bot, self.field_data.gray_color_light, *coordinates))
 
-        self.addLine(0, self.flag_field_center, self.flag_field_width, self.flag_field_center, self.ten_yard_lines_style)  # center line
-        self.addLine(0, self.flag_ten_yard, self.flag_field_width, self.flag_ten_yard, self.ten_yard_lines_style)  # end zone top line
-        self.addLine(0, self.flag_field_length - self.flag_ten_yard, self.flag_field_width, self.flag_field_length - self.flag_ten_yard, self.ten_yard_lines_style)  # end zone bot line
+        self.addLine(0, self.field_data.flag_field_center, self.field_data.flag_field_width, self.field_data.flag_field_center, self.field_data.ten_yard_lines_style)  # center line
+        self.addLine(0, self.field_data.flag_ten_yard, self.field_data.flag_field_width, self.field_data.flag_ten_yard, self.field_data.ten_yard_lines_style)  # end zone top line
+        self.addLine(0, self.field_data.flag_field_length - self.field_data.flag_ten_yard, self.field_data.flag_field_width, self.field_data.flag_field_length - self.field_data.flag_ten_yard, self.field_data.ten_yard_lines_style)  # end zone bot line
 
-        for j in range(self.flag_ten_yard, self.flag_field_length - self.flag_ten_yard, self.flag_field_center - self.flag_ten_yard):  # 5 yard lines
-            for i in range(self.flag_five_yard, self.flag_field_center - self.flag_ten_yard, self.flag_five_yard):
-                self.addLine(0, j + i, self.flag_field_width, j + i, self.other_lines_style)
+        for j in range(self.field_data.flag_ten_yard, self.field_data.flag_field_length - self.field_data.flag_ten_yard, self.field_data.flag_field_center - self.field_data.flag_ten_yard):  # 5 yard lines
+            for i in range(self.field_data.flag_five_yard, self.field_data.flag_field_center - self.field_data.flag_ten_yard, self.field_data.flag_five_yard):
+                self.addLine(0, j + i, self.field_data.flag_field_width, j + i, self.field_data.other_lines_style)
 
-        for j in range(self.flag_ten_yard, self.flag_field_length - self.flag_ten_yard, self.flag_five_yard):  # 1 yard lines + 1 yard lines hash
-            for i in range(self.flag_one_yard, self.flag_five_yard, self.flag_one_yard):
-                self.addLine(0, j + i, self.side_one_yard_line_length, j + i, self.other_lines_style)  # 1 yard lines left
-                self.addLine(self.flag_field_width - self.side_one_yard_line_length, j + i, self.flag_field_width, j + i, self.other_lines_style)   # 1 yard lines right
-                self.addLine(QLineF((self.flag_hash_center - self.hash_line_length / 2), j + i, (self.flag_hash_center + self.hash_line_length / 2), j + i), self.other_lines_style)  # 1 yard lines hash
+        for j in range(self.field_data.flag_ten_yard, self.field_data.flag_field_length - self.field_data.flag_ten_yard, self.field_data.flag_five_yard):  # 1 yard lines + 1 yard lines hash
+            for i in range(self.field_data.flag_one_yard, self.field_data.flag_five_yard, self.field_data.flag_one_yard):
+                self.addLine(0, j + i, self.field_data.side_one_yard_line_length, j + i, self.field_data.other_lines_style)  # 1 yard lines left
+                self.addLine(self.field_data.flag_field_width - self.field_data.side_one_yard_line_length, j + i, self.field_data.flag_field_width, j + i, self.field_data.other_lines_style)   # 1 yard lines right
+                self.addLine(QLineF((self.field_data.flag_hash_center - self.field_data.hash_line_length / 2), j + i, (self.field_data.flag_hash_center + self.field_data.hash_line_length / 2), j + i), self.field_data.other_lines_style)  # 1 yard lines hash
 
-        self.addRect(0, 0, self.flag_field_width, self.flag_field_length, self.border_line_style)  # border
+        self.addRect(0, 0, self.field_data.flag_field_width, self.field_data.flag_field_length, self.field_data.border_line_style)  # border
