@@ -1,4 +1,6 @@
-from PyQt5.Qt import *
+from PySide6.QtWidgets import QGraphicsLineItem
+from PySide6.QtGui import QColor, QPen, QPainter, QCursor, QPixmap
+from PySide6.QtCore import QLineF, Qt
 from Item_player import Player
 
 
@@ -49,7 +51,7 @@ class ActionLine(QGraphicsLineItem):
         self.ungrabMouse()
 
     def paint(self, painter, option, widget=None):
-        painter.setRenderHints(QPainter.HighQualityAntialiasing)
+        painter.setRenderHints(QPainter.Antialiasing)
         if self.hover:
             self.setPen(QPen(self.pen_hover_color, self.pen.width(), self.pen.style(), self.pen.capStyle(), self.pen.joinStyle()))
         else:

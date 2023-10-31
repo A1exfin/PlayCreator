@@ -1,4 +1,6 @@
-from PyQt5.Qt import *
+from PySide6.QtWidgets import QPlainTextEdit, QGraphicsProxyWidget
+from PySide6.QtCore import Qt, QRectF, QPointF
+from PySide6.QtGui import QCursor, QPen, QBrush, QPainter, QPixmap, QColor
 
 
 class TextEdit(QPlainTextEdit):
@@ -170,17 +172,17 @@ class ProxyWidget(QGraphicsProxyWidget):
         super().paint(painter, option, widget)
         painter.setPen(QPen(Qt.transparent))
         painter.setBrush(QBrush(Qt.transparent))
-        painter.setRenderHints(QPainter.HighQualityAntialiasing)
+        painter.setRenderHints(QPainter.Antialiasing)
         for border, rect in self.borders.items():
             painter.drawRect(QRectF(rect.x() - self.scenePos().x(), rect.y() - self.scenePos().y(), rect.width(), rect.height()))
         # if self.selected:
         if self.widget.hasFocus() and self.widget.keyboardGrabber():
-            painter.setPen(QPen(Qt.red, 2, Qt.DashLine, cap=Qt.RoundCap))
+            painter.setPen(QPen(Qt.red, 2, Qt.DashLine, c=Qt.RoundCap))
             painter.setBrush(QBrush(Qt.transparent))
             rec = self.boundingRect()
             painter.drawRect(rec)
         elif self.hover:
-            painter.setPen(QPen(QColor('#ff990b'), 2, Qt.DashLine, cap=Qt.RoundCap))
+            painter.setPen(QPen(QColor('#ff990b'), 2, Qt.DashLine, c=Qt.RoundCap))
             painter.setBrush(QBrush(Qt.transparent))
             rec = self.boundingRect()
             painter.drawRect(rec)

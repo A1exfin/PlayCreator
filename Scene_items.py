@@ -1,4 +1,6 @@
-from PyQt5.Qt import *
+from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsPolygonItem, QGraphicsTextItem
+from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QCursor, QPixmap, QFont
+from PySide6.QtCore import Qt
 
 
 class Rect(QGraphicsRectItem):
@@ -14,7 +16,7 @@ class Rect(QGraphicsRectItem):
         # self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
 
     def paint(self, painter, option, widget=None):
-        painter.setRenderHints(QPainter.HighQualityAntialiasing)
+        painter.setRenderHints(QPainter.Antialiasing)
         if self.hover:
             self.setPen(QPen(self.pen_hover_color, self.pen.width(), self.pen.style(), self.pen.capStyle(), self.pen.joinStyle()))
         else:
@@ -59,7 +61,7 @@ class Ellipse(QGraphicsEllipseItem):
         # self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
 
     def paint(self, painter, option, widget=None):
-        painter.setRenderHints(QPainter.HighQualityAntialiasing)
+        painter.setRenderHints(QPainter.Antialiasing)
         if self.hover:
             self.setPen(QPen(self.pen_hover_color, self.pen.width(), self.pen.style(), self.pen.capStyle(), self.pen.joinStyle()))
         else:
@@ -101,9 +103,8 @@ class FieldTriangle(QGraphicsPolygonItem):
 
     def paint(self, painter, option, widget=None):
         painter.setRenderHints(QPainter.Antialiasing, True)
-        painter.setRenderHints(QPainter.HighQualityAntialiasing, True)
         painter.setBrush(QBrush(QColor(*self.color)))
-        painter.setPen(QPen(QColor(*self.color), 1, Qt.SolidLine, cap=Qt.RoundCap, join=Qt.RoundJoin))
+        painter.setPen(QPen(QColor(*self.color), 1, Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin))
         painter.drawPolygon(self.polygon)
 
 

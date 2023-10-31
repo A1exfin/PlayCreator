@@ -2,7 +2,9 @@ import os.path
 from typing import Tuple, Any
 
 from PlayCreator_ui import *
-from PyQt5.Qt import *
+from PySide6.QtWidgets import *
+from PySide6.QtGui import *
+from PySide6.QtCore import *
 import sys
 from Custom_graphics_view import CustomGraphicsView
 from Custom_scene import Field
@@ -33,7 +35,7 @@ COLORS = ('#000000', '#800000', '#400080', '#0004ff', '#8d8b9a', '#22b14c',
 
 
 class PlayCreator(QMainWindow, Ui_MainWindow):
-    colorChanged = pyqtSignal(str)
+    colorChanged = Signal(str)
     version = '2.0'
 
     def __init__(self):
@@ -106,7 +108,7 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         self.pushButton_current_color.clicked.connect(self.set_user_color)
         self.colorChanged.connect(self.color_changed)
 
-        self.action_exit.triggered.connect(lambda: sys.exit(app.exec_()))
+        self.action_exit.triggered.connect(lambda: sys.exit(app.exec()))
         self.action_save.triggered.connect(self.save_on_picture)
         self.action_save_all.triggered.connect(self.save_all_schemes_on_picture)
         self.action_about.triggered.connect(self.about_clicked)
@@ -168,7 +170,7 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
                     image = QImage(int(rect.width()), int(rect.height()), QImage.Format_ARGB8565_Premultiplied)
                     image.fill(QColor(Qt.white))
                     painter = QPainter(image)
-                    painter.setRenderHints(QPainter.HighQualityAntialiasing)
+                    painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
                     item.scene.render(painter, source=rect)
                     image.save(f'{url}/{item.text()}.png')
                     painter.end()
@@ -190,7 +192,7 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
                     image = QImage(int(rect.width()), int(rect.height()), QImage.Format_ARGB8565_Premultiplied)
                     image.fill(QColor(Qt.white))
                     painter = QPainter(image)
-                    painter.setRenderHints(QPainter.HighQualityAntialiasing)
+                    painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
                     item.scene.render(painter, source=rect)
                     image.save(f'{url}/{item.text()}.png')
                     painter.end()
@@ -305,7 +307,7 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
 
     def new_scheme_dialog_action(self):
         dialog = DialogNewSchemeAction(parent=self)
-        dialog.exec_()
+        dialog.exec()
         if dialog.result() == 1 and len(dialog.line_edit.text()) > 0:
             if dialog.radio_button_football.isChecked():
                 if self.listWidget_schemes_football.count() == 0:
@@ -365,7 +367,7 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         save_window.setDefaultSuffix('.jpg')
         save_window.setOption(QFileDialog.Option.DontConfirmOverwrite, False)
         filters = 'JPEG (*.jpg *.jpeg *.jpe *.jfif);; TIFF (*.tif *.tiff);; PNG (*.png)'
-        url, _ = save_window.getSaveFileName(self, 'Сохранить', filter=filters, initialFilter='PNG (*.png)')
+        url, _ = save_window.getSaveFileName(self, 'Сохранить', filter=filters, selectedFilter='PNG (*.png)')
         if url:
             poly = self.graphics_view.mapToScene(QRect(0, 0, self.graphics_view.width() - 14, self.graphics_view.height() - 13))
             rect = poly.boundingRect()
@@ -378,7 +380,7 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             img = QImage(int(rect.width()), int(rect.height()), QImage.Format_ARGB8565_Premultiplied)
             img.fill(QColor(Qt.white))
             painter = QPainter(img)
-            painter.setRenderHints(QPainter.HighQualityAntialiasing)
+            painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
             self.current_scene.render(painter, source=rect)
             img.save(f'{url}')
             painter.end()
@@ -1134,17 +1136,17 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             item.setForeground(QColor('#b1b1b1'))
         if self.chosen_list_item_football:
             self.chosen_list_item_football.setForeground(QColor('#27c727'))
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Dark_theme/save(dark_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Dark_theme/save(dark_theme).png'))
         self.action_save.setIcon(icon)
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Dark_theme/save_all(dark_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Dark_theme/save_all(dark_theme).png'))
         self.action_save_all.setIcon(icon)
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Dark_theme/new_scheme(dark_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Dark_theme/new_scheme(dark_theme).png'))
         self.action_new_scheme.setIcon(icon)
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Dark_theme/presentation_mode(dark_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Dark_theme/presentation_mode(dark_theme).png'))
         self.action_presentation_mode.setIcon(icon)
 
     def set_light_theme(self):
@@ -1160,17 +1162,17 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             item.setForeground(QColor(Qt.black))
         if self.chosen_list_item_football:
             self.chosen_list_item_football.setForeground(QColor('#1a6aa7'))
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Light_theme/save(light_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Light_theme/save(light_theme).png'))
         self.action_save.setIcon(icon)
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Light_theme/save_all(light_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Light_theme/save_all(light_theme).png'))
         self.action_save_all.setIcon(icon)
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Light_theme/new_scheme(light_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Light_theme/new_scheme(light_theme).png'))
         self.action_new_scheme.setIcon(icon)
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap('Interface/Light_theme/presentation_mode(light_theme).png'))
+        icon = QIcon()
+        icon.addPixmap(QPixmap('Interface/Light_theme/presentation_mode(light_theme).png'))
         self.action_presentation_mode.setIcon(icon)
 
     def about_clicked(self):
@@ -1181,7 +1183,7 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             ico = 'Interface/tactic(light128).png'
             color = '#1a6aa7'
         dialog = DialogAbout(self.version, ico, color, parent=self)
-        dialog.exec_()
+        dialog.exec()
 
     def presentation_mode(self):
         self.tabWidget_game_type.setVisible(not self.action_presentation_mode.isChecked())
@@ -1274,8 +1276,8 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
 
 
 if __name__ == '__main__':
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     play_creator = PlayCreator()
     play_creator.show()
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

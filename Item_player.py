@@ -1,6 +1,6 @@
-from PyQt5.Qt import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
+from PySide6.QtWidgets import QGraphicsItem
+from PySide6.QtGui import QColor, QPen, QPainter, QFont
+from PySide6.QtCore import QPointF, QRectF, Qt
 
 
 class Player(QGraphicsItem):
@@ -48,7 +48,7 @@ class Player(QGraphicsItem):
         if False:
             painter = QPainter()
         painter.setFont(QFont('Times New Roman', 11))
-        painter.setRenderHints(QPainter.HighQualityAntialiasing)
+        painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
         if self.team == 'offence' or self.team == 'kickoff' \
                 or self.team == 'punt_kick' or self.team == 'field_goal_off' or self.team == 'offence_additional':
             painter.setPen(QPen(Qt.black, self.border_width))

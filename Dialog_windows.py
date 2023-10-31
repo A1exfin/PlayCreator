@@ -1,6 +1,7 @@
-from PyQt5.Qt import QInputDialog, QGridLayout, QDialog, QLineEdit
-from PyQt5.Qt import *
-from PyQt5 import QtWidgets
+from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QRadioButton, QDialogButtonBox, QFormLayout, QVBoxLayout,\
+    QHBoxLayout, QLayout, QSpacerItem, QSizePolicy
+from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtCore import Qt
 
 
 class DialogNewSchemeAction(QDialog):
@@ -34,7 +35,7 @@ class DialogNewSchemeAction(QDialog):
         button_box = QDialogButtonBox(self)
         button_box.setFont(font)
         button_box.setOrientation(Qt.Horizontal)
-        button_box.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel | QtWidgets.QDialogButtonBox.Ok)
+        button_box.setStandardButtons(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
         button_box.setCenterButtons(True)
         button_box.setFont(font)
 
@@ -104,7 +105,7 @@ class DialogAbout(QDialog):
         button_box = QDialogButtonBox(self)
         button_box.setFont(font)
         button_box.setOrientation(Qt.Horizontal)
-        button_box.setStandardButtons(QtWidgets.QDialogButtonBox.Ok)
+        button_box.setStandardButtons(QDialogButtonBox.Ok)
         button_box.setCenterButtons(True)
         button_box.setFont(font)
 

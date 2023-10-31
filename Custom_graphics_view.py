@@ -1,10 +1,9 @@
-from PyQt5 import QtWidgets
-from PyQt5 import QtCore
-from PyQt5.Qt import *
+from PySide6.QtWidgets import QGraphicsView, QFrame
+from PySide6.QtCore import Signal, QSize, Qt
 
 
 class CustomGraphicsView(QGraphicsView):
-    zoomChanged = pyqtSignal(int)
+    zoomChanged = Signal(int)
 
     def __init__(self, widget):
         super().__init__(widget)
@@ -12,8 +11,8 @@ class CustomGraphicsView(QGraphicsView):
         # self.setResizeAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.setFrameShape(QtWidgets.QFrame.NoFrame)
-        self.setMinimumSize(QtCore.QSize(859, 741))
+        self.setFrameShape(QFrame.NoFrame)
+        self.setMinimumSize(QSize(859, 741))
         self.zoom_factor = 1.2
         # self.set_current_zoom()
         self.current_zoom = 60

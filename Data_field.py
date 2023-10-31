@@ -1,4 +1,4 @@
-from PyQt5.Qt import QPen, QColor
+from PySide6.QtGui import QPen, QColor
 
 
 class FieldData:

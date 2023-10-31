@@ -1,6 +1,7 @@
 from math import acos, degrees, radians, sqrt, cos, sin
-from PyQt5.Qt import *
-from PyQt5.QtCore import Qt
+from PySide6.QtWidgets import QGraphicsScene, QMainWindow
+from PySide6.QtCore import Qt, Signal, QPointF, QLineF, QRectF
+from PySide6.QtGui import QFont, QPen, QBrush, QColor, QPolygonF
 from Item_line_action import ActionLine
 from Item_final_action_arrow import FinalActionArrow
 from Item_final_action_block import FinalActionBlock
@@ -21,9 +22,9 @@ def timeit(func):
 
 
 class Field(QGraphicsScene):
-    labelDoubleClicked = pyqtSignal(object)
-    labelEditingFinished = pyqtSignal(object)
-    modeChanged = pyqtSignal(str)
+    labelDoubleClicked = Signal(object)
+    labelEditingFinished = Signal(object)
+    modeChanged = Signal(str)
 
     def __init__(self, main_window: QMainWindow, field_data: FieldData, field_type: str):
         super().__init__()
@@ -294,13 +295,13 @@ class Field(QGraphicsScene):
         if self.mode == 'route':
             arrow = FinalActionArrow(angle, self.start_pos,
                             QPen(QColor(self.config['color']), self.config['line_thickness'],
-                                 Qt.SolidLine, cap=Qt.RoundCap, join=Qt.RoundJoin),
+                                 Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
                             self.current_player, self.mode)
             return arrow
         elif self.mode == 'block':
             line = FinalActionBlock(angle, self.start_pos,
                               QPen(QColor(self.config['color']), self.config['line_thickness'],
-                                   Qt.SolidLine, cap=Qt.RoundCap, join=Qt.RoundJoin),
+                                   Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
                               self.current_player, self.mode)
             return line
 

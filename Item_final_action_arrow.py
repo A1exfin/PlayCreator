@@ -1,4 +1,6 @@
-from PyQt5.Qt import *
+from PySide6.QtWidgets import QGraphicsPolygonItem
+from PySide6.QtGui import QColor, QPen, QPainter, QBrush, QPolygonF
+from PySide6.QtCore import QPointF, QRectF
 from Item_player import Player
 
 
@@ -30,7 +32,7 @@ class FinalActionArrow(QGraphicsPolygonItem):
         return QRectF(self.x, self.y, self.w, self.h)
 
     def paint(self, painter, option, widget=None):
-        painter.setRenderHint(QPainter.HighQualityAntialiasing)
+        painter.setRenderHint(QPainter.Antialiasing)
         # painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
         if self.hover:
             painter.setPen(QPen(self.pen_hover_color, self.pen.width(), self.pen.style(), self.pen.capStyle(), self.pen.joinStyle()))
