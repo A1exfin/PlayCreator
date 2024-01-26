@@ -405,9 +405,17 @@ QDialogButtonBox QPushButton{
     min-height: 25px;
 }
 
-QMenuBar QMenu:item QAction#action_QB_Wrist{
+QDialog QGroupBox QPushButton:disabled{
+    border: 20px solid #bbb;
+}  /*Заливка фона серым, background-color не работает*/
+
+QGroupBox#groupBox_colors QPushButton:disabled{
+    border: 20px solid #bbb;
+}  /*Заливка фона серым, background-color не работает*/
+
+/* QMenuBar QMenu:item QAction#action_QB_Wrist{
     background-color: red;
-}
+} */
 
 /* QMenu:item#action_save{
     image: url(Dark_theme/move(dark_theme).png);

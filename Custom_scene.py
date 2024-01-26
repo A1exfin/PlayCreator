@@ -156,6 +156,10 @@ class Field(QGraphicsScene):
     #     except AttributeError:
     #         pass
 
+    def mouseDoubleClickEvent(self, event):
+        if self.mode == 'move':
+            super().mouseDoubleClickEvent(event)
+
     def mousePressEvent(self, event):  # Обработка нажатия кнопки мыши и перенаправление на другие методы в зависимости от mode
         if self.mode == 'move':
             super().mousePressEvent(event)
@@ -448,7 +452,7 @@ class Field(QGraphicsScene):
         numbers_right_2 = [[f'{i}', -90, self.field_data.gray_color_light, 40 * self.field_data.football_width_one_yard] for i in range(40, 0, -10)]
         numbers_left_y = [16.9 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard for i in range(9)]
         numbers_right_y = [23 * self.field_data.football_one_yard + i * self.field_data.football_ten_yard for i in range(9)]
-        # self.addRect(0, 0, self.football_field_width, self.football_field_length, QPen(Qt.transparent), QBrush(Qt.green))
+        # self.addRect(0, 0, self.field_data.football_field_width, self.field_data.football_field_length, QPen(Qt.transparent), QBrush(QColor('#004400')))
         for i, number in enumerate(numbers_left_1):
             self.addItem(FieldNumber(*number, numbers_left_y[i]))
         for i, number in enumerate(numbers_left_2):
@@ -512,21 +516,21 @@ class Field(QGraphicsScene):
                              self.field_data.other_lines_style)   # 1 yard lines right
                 self.addLine(QLineF((self.field_data.football_hash_center - self.field_data.hash_line_length / 2), j + i,
                                     (self.field_data.football_hash_center + self.field_data.hash_line_length / 2), j + i),
-                                    self.field_data.other_lines_style)  # 1 yard lines left hash
+                             self.field_data.other_lines_style)  # 1 yard lines left hash
                 self.addLine(QLineF(self.field_data.football_field_width - (self.field_data.football_hash_center - self.field_data.hash_line_length / 2), j + i,
                                     (self.field_data.football_field_width - (self.field_data.football_hash_center + self.field_data.hash_line_length / 2)), j + i),
-                                    self.field_data.other_lines_style)   # 1 yard lines right hash
+                             self.field_data.other_lines_style)   # 1 yard lines right hash
 
         self.addLine(QLineF(self.field_data.football_field_width / 2 - self.field_data.hash_line_length / 2,
                             self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard,
                             self.field_data.football_field_width / 2 + self.field_data.hash_line_length / 2,
                             self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard),
-                            self.field_data.other_lines_style)  # conversion line top
+                     self.field_data.other_lines_style)  # conversion line top
         self.addLine(QLineF(self.field_data.football_field_width / 2 - self.field_data.hash_line_length / 2,
                             self.field_data.football_field_length - (self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard),
                             self.field_data.football_field_width / 2 + self.field_data.hash_line_length / 2,
                             self.field_data.football_field_length - (self.field_data.football_ten_yard + 3 * self.field_data.football_one_yard)),
-                            self.field_data.other_lines_style)  # conversion line bot
+                     self.field_data.other_lines_style)  # conversion line bot
 
         self.addRect(0, 0, self.field_data.football_field_width, self.field_data.football_field_length, self.field_data.border_line_style)  # border
 

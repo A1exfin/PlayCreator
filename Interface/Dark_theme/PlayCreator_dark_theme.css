@@ -5,7 +5,7 @@ QWidget {
 
 /* QLabel */
 QLabel{
-    color: #b1b1b1;
+    color: #27c727;
 }
 
 /* QGraphicsView */
@@ -323,7 +323,6 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 	background: none;
 }
 
-
 /* Horizontal Scrollbar */
 QScrollBar:horizontal {
     border: none;
@@ -406,9 +405,17 @@ QDialogButtonBox QPushButton{
     min-height: 25px;
 }
 
-QMenuBar QMenu:item QAction#action_QB_Wrist{
+QDialog QGroupBox QPushButton:disabled{
+    border: 20px solid #333;
+}  /*Заливка фона серым, background-color не работает*/
+
+QGroupBox#groupBox_colors QPushButton:disabled{
+    border: 20px solid #333;
+}  /*Заливка фона серым, background-color не работает*/
+
+/* QMenuBar QMenu:item QAction#action_QB_Wrist{
     background-color: red;
-}
+} */
 
 /* QMenu:item#action_save{
     image: url(Dark_theme/move(dark_theme).png);

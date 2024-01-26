@@ -12,7 +12,7 @@ class CustomGraphicsView(QGraphicsView):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.setFrameShape(QFrame.NoFrame)
-        self.setMinimumSize(QSize(859, 741))
+        self.setMinimumSize(1115, 780)
         self.zoom_factor = 1.2
         # self.set_current_zoom()
         self.current_zoom = 60
