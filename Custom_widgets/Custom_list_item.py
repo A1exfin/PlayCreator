@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QListWidgetItem
 from PySide6.QtCore import Qt
-from Custom_scene import *
+from Custom_widgets.Custom_scene import Field
 
 
 class CustomListItem(QListWidgetItem):

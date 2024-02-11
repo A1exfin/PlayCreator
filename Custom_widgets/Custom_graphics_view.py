@@ -1,18 +1,18 @@
 from PySide6.QtWidgets import QGraphicsView, QFrame
-from PySide6.QtCore import Signal, QSize, Qt
+from PySide6.QtCore import Signal, Qt
 
 
 class CustomGraphicsView(QGraphicsView):
     zoomChanged = Signal(int)
 
-    def __init__(self, widget):
-        super().__init__(widget)
+    def __init__(self, parent):
+        super().__init__(parent)
         # self.setTransformationAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
         # self.setResizeAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.setFrameShape(QFrame.NoFrame)
-        self.setMinimumSize(1115, 780)
+        self.setMinimumSize(1000, 600)
         self.zoom_factor = 1.2
         # self.set_current_zoom()
         self.current_zoom = 60

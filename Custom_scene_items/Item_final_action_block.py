@@ -1,18 +1,19 @@
 from PySide6.QtWidgets import QGraphicsPolygonItem
 from PySide6.QtGui import QColor, QPen, QPainter
 from PySide6.QtCore import QPointF, QRectF, QLineF
+from Custom_scene_items.Item_player import Player
+from Enum_flags import Modes
 
 
 class FinalActionBlock(QGraphicsPolygonItem):
     pen_hover_color = QColor('#ffcb30')
 
-    def __init__(self, angle, pos, pen, player, mode):
+    def __init__(self, angle: int, pos: QPointF, pen: QPen, player: Player, mode: Modes):
         super().__init__()
+        self.id = None
         self.player = player
         self.action_number = player.current_action_number
         self.action = mode
-        if False:
-            self.pen = QPen()
         self.pen = pen
         self.angle = angle
         self.x = pos.x() - 15
@@ -23,7 +24,7 @@ class FinalActionBlock(QGraphicsPolygonItem):
         self.line = QLineF(QPointF(pos + QPointF(0, -7)), QPointF(pos + QPointF(0, 7)))
         self.setAcceptHoverEvents(True)
         self.hover = False
-        self.setZValue(0)
+        self.setZValue(1)
         self.object_name = f'{self.player.position}_{self.action}_{self.action_number}'
 
     def boundingRect(self):  # Если не переопределить этот метод, при приближенном зуме итем не отображается
@@ -40,3 +41,6 @@ class FinalActionBlock(QGraphicsPolygonItem):
         painter.rotate(-self.angle)
         painter.translate(-self.pos)
         painter.drawLine(self.line)
+
+    def return_data(self):
+        return self.id, self.action_number, self.angle, self.pen.width(), self.pen.color().name(), self.action, self.x, self.y

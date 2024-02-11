@@ -2,12 +2,15 @@ from math import acos, degrees, radians, sqrt, cos, sin
 from PySide6.QtWidgets import QGraphicsScene, QMainWindow
 from PySide6.QtCore import Qt, Signal, QPointF, QLineF, QRectF
 from PySide6.QtGui import QFont, QPen, QBrush, QColor, QPolygonF
-from Item_line_action import ActionLine
-from Item_final_action_arrow import FinalActionArrow
-from Item_final_action_block import FinalActionBlock
-from Scene_items import Rect, Ellipse, FieldTriangle, FieldNumber
-from ProxyLabel import ProxyWidget
-from Data_field import FieldData
+from Custom_scene_items.Item_line_action import ActionLine
+from Custom_scene_items.Item_final_action_arrow import FinalActionArrow
+from Custom_scene_items.Item_final_action_block import FinalActionBlock
+from Custom_scene_items.Item_rect import Rect
+from Custom_scene_items.Item_ellipse import Ellipse
+from Custom_scene_items.Items_field_parts import FieldTriangle, FieldNumber
+from Custom_scene_items.ProxyLabel import ProxyWidget
+from Data.Data_field import FieldData
+from Enum_flags import PlaybookType, Modes
 
 from datetime import datetime
 
@@ -24,19 +27,19 @@ def timeit(func):
 class Field(QGraphicsScene):
     labelDoubleClicked = Signal(object)
     labelEditingFinished = Signal(object)
-    modeChanged = Signal(str)
+    modeChanged = Signal(Modes)
 
-    def __init__(self, main_window: QMainWindow, field_data: FieldData, field_type: str):
-        super().__init__()
+    def __init__(self, main_window: QMainWindow, field_data: FieldData, field_type: PlaybookType, parent=None):
+        super().__init__(parent=parent)
         self.field_data = field_data
         self.field_type = field_type
 
         self.current_field_border = None  # Границы текущего поля, используются при проверке попадания event внутрь поля при рисовании
 
-        if self.field_type == 'football':
+        if self.field_type == PlaybookType.football:
             self.view_point = QPointF(self.field_data.football_field_width / 2, self.field_data.football_field_length / 2)
             self.draw_football_field()
-        elif self.field_type == 'flag':
+        elif self.field_type == PlaybookType.flag:
             self.view_point = QPointF(self.field_data.flag_field_width / 2, self.field_data.flag_field_length / 2)
             self.draw_flag_field()
         self.zoom = 60  # Значение приближения сцены
@@ -84,12 +87,12 @@ class Field(QGraphicsScene):
 
         self.pencil = []  # Список всех линий рисунка карандаша
 
-        self.mode = 'move'
+        self.mode = Modes.move
 
     def set_mode(self, mode):
         '''Установка мода сцены'''
         if self.painting:
-            if self.mode == 'route' or self.mode == 'block':
+            if self.mode == Modes.route or self.mode == Modes.block:
                 action_finish = self.get_action_finish(self.last_start_pos, self.start_pos)  ################
                 self.addItem(action_finish)
             if self.action_number_temp is not None:
@@ -120,24 +123,24 @@ class Field(QGraphicsScene):
         # self.action_number_temp = None
         # self.current_figure = None
         self.mode = mode
-        if self.mode == 'motion':
+        if self.mode == Modes.motion:
             self.config['pen_style'] = Qt.PenStyle.DashLine
         else:
             self.config['pen_style'] = Qt.PenStyle.SolidLine
         # for figure in self.figures:
-        #     if self.mode == 'erase':
+        #     if self.mode == Modes.erase:
         #         figure.setCursor(QCursor(QPixmap('Cursors/eraser.cur'), 0, 0))
         #     else:
         #         figure.setCursor(Qt.ArrowCursor)
         # for player in self.first_team_players:
         #     for action in player.actions.values():
         #         for line in action:
-        #             if self.mode == 'erase':
+        #             if self.mode == Modes.erase:
         #                 line.setCursor(QCursor(QPixmap('Cursors/eraser.cur'), 0, 0))
         #             else:
         #                 line.setCursor(Qt.ArrowCursor)
         # for label in self.labels:
-        #     if self.mode == 'erase':
+        #     if self.mode == Modes.erase:
         #         label.setCursor(QCursor(QPixmap('Cursors/eraser.cur'), 0, 0))
         #     else:
         #         label.setCursor(Qt.SizeAllCursor)
@@ -157,52 +160,52 @@ class Field(QGraphicsScene):
     #         pass
 
     def mouseDoubleClickEvent(self, event):
-        if self.mode == 'move':
+        if self.mode == Modes.move:
             super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event):  # Обработка нажатия кнопки мыши и перенаправление на другие методы в зависимости от mode
-        if self.mode == 'move':
+        if self.mode == Modes.move:
             super().mousePressEvent(event)
-        elif self.mode == 'route' or self.mode == 'block' or self.mode == 'motion':
+        elif self.mode == Modes.route or self.mode == Modes.block or self.mode == Modes.motion:
             if self.allow_painting:
                 self.action_mousePressEvent(event)
             else:  # Это условие для выбора игрока от которого будут рисоваться действия, и установки флага разрешения рисования
                 super().mousePressEvent(event)
-        elif self.mode == 'erase':
+        elif self.mode == Modes.erase:
             super().mousePressEvent(event)
-        elif self.mode == 'rectangle' or self.mode == 'ellipse':
+        elif self.mode == Modes.rectangle or self.mode == Modes.ellipse:
             self.figure_mousePressEvent(event)
-        elif self.mode == 'label':
+        elif self.mode == Modes.label:
             self.label_mousePressEvent(event)
-        elif self.mode == 'pencil':
+        elif self.mode == Modes.pencil:
             self.pencil_mousePressEvent(event)
 
     def mouseMoveEvent(self, event):  # Обработка движения курсора мыши и перенаправление на другие методы в зависимости от mode
-        if self.mode == 'move':
+        if self.mode == Modes.move:
             super().mouseMoveEvent(event)
-        elif self.mode == 'route' or self.mode == 'block' or self.mode == 'motion':
+        elif self.mode == Modes.route or self.mode == Modes.block or self.mode == Modes.motion:
             if self.allow_painting:
                 self.action_mouseMoveEvent(event)
             else:
                 super().mouseMoveEvent(event)
-        elif self.mode == 'erase':
+        elif self.mode == Modes.erase:
             super().mouseMoveEvent(event)
-        elif self.mode == 'rectangle' or self.mode == 'ellipse':
+        elif self.mode == Modes.rectangle or self.mode == Modes.ellipse:
             self.figure_mouseMoveEvent(event)
-        elif self.mode == 'pencil':
+        elif self.mode == Modes.pencil:
             self.pencil_mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):  # Обработка отпускания кнопки мыши и перенаправление на другие методы в зависимости от mode
-        if self.mode == 'move':
+        if self.mode == Modes.move:
             super().mouseReleaseEvent(event)
-        elif self.mode == 'route' or self.mode == 'block' or self.mode == 'motion':
+        elif self.mode == Modes.route or self.mode == Modes.block or self.mode == Modes.motion:
             if self.allow_painting:
                 self.action_mouseReleaseEvent(event)
             # else:
             #     super().mouseReleaseEvent(event)
-        elif self.mode == 'rectangle' or self.mode == 'ellipse':
+        elif self.mode == Modes.rectangle or self.mode == Modes.ellipse:
             self.figure_mouseReleaseEvent(event)
-        elif self.mode == 'pencil':
+        elif self.mode == Modes.pencil:
             self.pencil_mouseReleaseEvent(event)
 
     def action_mousePressEvent(self, event):  # Рисование действий игроков
@@ -230,7 +233,7 @@ class Field(QGraphicsScene):
         #         self.mouse_pressed_painting = True
         #         self.current_line.setLine(QLineF(self.start_pos, event.scenePos()))
         elif self.painting and event.button() == Qt.RightButton and not self.mouse_pressed_painting:
-            if self.mode == 'route' or self.mode == 'block':
+            if self.mode == Modes.route or self.mode == Modes.block:
                 action_finish = self.get_action_finish(self.last_start_pos, self.start_pos)
                 self.addItem(action_finish)
             if self.action_number_temp is not None:
@@ -296,13 +299,13 @@ class Field(QGraphicsScene):
     def get_action_finish(self, start_pos, finish_pos):
         '''Получение финала (стрелка для маршрута и линия для блока) действия игрока'''
         angle = self.get_angle(start_pos, finish_pos)
-        if self.mode == 'route':
+        if self.mode == Modes.route:
             arrow = FinalActionArrow(angle, self.start_pos,
                             QPen(QColor(self.config['color']), self.config['line_thickness'],
                                  Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
                             self.current_player, self.mode)
             return arrow
-        elif self.mode == 'block':
+        elif self.mode == Modes.block:
             line = FinalActionBlock(angle, self.start_pos,
                               QPen(QColor(self.config['color']), self.config['line_thickness'],
                                    Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
@@ -338,11 +341,11 @@ class Field(QGraphicsScene):
         if not self.painting and event.button() == Qt.LeftButton:
             if self.check_field_border(event):
                 self.start_pos = event.scenePos()
-                if self.mode == 'rectangle':
+                if self.mode == Modes.rectangle:
                     figure = Rect(QRectF(self.start_pos, event.scenePos()),
                                    QPen(QColor(self.config['color']), self.config['line_thickness'],
                                         self.config['pen_style']))
-                elif self.mode == 'ellipse':
+                elif self.mode == Modes.ellipse:
                     figure = Ellipse(QRectF(self.start_pos, event.scenePos()),
                                       QPen(QColor(self.config['color']), self.config['line_thickness'],
                                            self.config['pen_style']))
@@ -402,7 +405,7 @@ class Field(QGraphicsScene):
         self.current_label.grabKeyboard()
         self.addItem(label)
         self.labels.append(label) ##########################   проверить что добавляется и в списках находится
-        self.set_mode('move')
+        self.set_mode(Modes.move)
 
     def delete_labels(self):
         '''Удаление всех надписей со сцены'''

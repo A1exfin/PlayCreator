@@ -1,8 +1,10 @@
-from List_item_custom import CustomListItem
+from Custom_widgets.Custom_list_item import CustomListItem
+from Enum_flags import PlaybookType
 
 
 class Playbook:
-    def __init__(self, playbook_name: str, playbook_type: str, from_server:  bool):
+    def __init__(self, playbook_name: str, playbook_type: PlaybookType, from_server:  bool = False):
+        self.id = None
         self.type = playbook_type
         self.name = playbook_name
         self.schemes = []
@@ -19,3 +21,6 @@ class Playbook:
 
     def __repr__(self):
         return f'playbook_type: {self.type}, playbook_name: {self.name},\nplaybook_schemes: {self.schemes}'
+
+    def return_data(self):
+        return self.id, self.name, self.type

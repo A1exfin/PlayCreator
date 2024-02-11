@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import QPlainTextEdit, QGraphicsProxyWidget
 from PySide6.QtCore import Qt, QRectF, QPointF
 from PySide6.QtGui import QCursor, QPen, QBrush, QPainter, QPixmap, QColor
+from Enum_flags import Modes
+import os
 
 
 class TextEdit(QPlainTextEdit):
@@ -26,7 +28,7 @@ class TextEdit(QPlainTextEdit):
 
     def mouseDoubleClickEvent(self, event):
         # if self.proxy.scene().mode == 'move' and event.button() == Qt.LeftButton and not self.proxy.selected:
-        if self.proxy.scene().mode == 'move' and event.button() == Qt.LeftButton and not self.keyboardGrabber():
+        if self.proxy.scene().mode == Modes.move and event.button() == Qt.LeftButton and not self.keyboardGrabber():
             # self.setCursorWidth(1)
             # self.proxy.selected = True
             self.proxy.scene().current_label = self
@@ -35,7 +37,7 @@ class TextEdit(QPlainTextEdit):
             self.proxy.scene().labelDoubleClicked.emit(self)
             self.update()
         # elif self.proxy.scene().mode == 'move' and event.button() == Qt.LeftButton and self.proxy.selected:
-        elif self.proxy.scene().mode == 'move' and event.button() == Qt.LeftButton and self.keyboardGrabber():
+        elif self.proxy.scene().mode == Modes.move and event.button() == Qt.LeftButton and self.keyboardGrabber():
             self.selectAll()
         else:
             pass
@@ -117,6 +119,7 @@ class ProxyWidget(QGraphicsProxyWidget):
     min_height = 20
     max_width = 500
     max_height = 195
+    eraser_cursor_path = f'{os.getcwd()}//Interface/Cursors/eraser.cur'
     # cursor = {'left': Qt.SizeHorCursor,
     #           'right': Qt.SizeHorCursor,
     #           'move': Qt.SizeAllCursor,
@@ -135,7 +138,7 @@ class ProxyWidget(QGraphicsProxyWidget):
                        'right': Qt.SizeHorCursor,
                        'move': Qt.SizeAllCursor,
                        'edited': Qt.IBeamCursor,
-                       'erase': QCursor(QPixmap('Interface/Cursors/eraser.cur'), 0, 0)}
+                       'erase': QCursor(QPixmap(self.eraser_cursor_path), 0, 0)}
         self.setAcceptHoverEvents(True)
         self.hover = False
         # self.selected = True
@@ -145,6 +148,7 @@ class ProxyWidget(QGraphicsProxyWidget):
         self.setGeometry(QRectF(self.x, self.y, self.width, self.height))
         self.update_borders_pos()
         self.widget.setFocus()
+        self.setZValue(3)
 
     def boundingRect(self):
         return QRectF(0, 0, self.width, self.height)
@@ -199,19 +203,19 @@ class ProxyWidget(QGraphicsProxyWidget):
         # print(f'focus {self.widget.hasFocus()}')
         # print(f'keyGrabber {self.widget.keyboardGrabber()}')
         # print(f'label {self.widget}')
-        if self.scene().mode == 'move' or self. scene().mode == 'erase':
+        if self.scene().mode == Modes.move or self. scene().mode == Modes.erase:
             self.hover = True
             self.update()
             super().hoverEnterEvent(event)
 
     def hoverMoveEvent(self, event):
-        if self.widget.keyboardGrabber() and self.scene().mode == 'move':
+        if self.widget.keyboardGrabber() and self.scene().mode == Modes.move:
             border_under_cursor = self.check_border_under_cursor(event.scenePos())
             if border_under_cursor is None:
                 cursor = self.cursor['edited']
             else:
                 cursor = self.cursor[border_under_cursor]
-        elif self.scene().mode == 'erase':
+        elif self.scene().mode == Modes.erase:
             cursor = self.cursor['erase']
         else:
             cursor = self.cursor['move']
@@ -220,19 +224,19 @@ class ProxyWidget(QGraphicsProxyWidget):
         super().hoverMoveEvent(event)
 
     def hoverLeaveEvent(self, event):
-        if self.scene().mode == 'move' or self.scene().mode == 'erase':
+        if self.scene().mode == Modes.move or self.scene().mode == Modes.erase:
             self.hover = False
             self.update()
             super().hoverLeaveEvent(event)
 
     def mousePressEvent(self, event):
-        if self.scene().mode == 'erase':
+        if self.scene().mode == Modes.erase:
             self.setCursor(Qt.ArrowCursor)  # Возврат стандартного курсора сразу после клика
             self.deleteLater()
             self.scene().labels.remove(self)
             self.scene().current_label = None
         self.border_selected = self.check_border_under_cursor(event.scenePos())
-        if self.scene().mode == 'move' and not self.border_selected and event.button() == Qt.LeftButton and not self.widget.keyboardGrabber():
+        if self.scene().mode == Modes.move and not self.border_selected and event.button() == Qt.LeftButton and not self.widget.keyboardGrabber():
             self.startPos = event.pos()
         else:
             super().mousePressEvent(event)
@@ -240,7 +244,7 @@ class ProxyWidget(QGraphicsProxyWidget):
     def mouseMoveEvent(self, event):
         if self.border_selected and self.widget.keyboardGrabber():
             self.interactiveResize(event.scenePos())
-        elif self.scene().mode == 'move' and not self.widget.keyboardGrabber():
+        elif self.scene().mode == Modes.move and not self.widget.keyboardGrabber():
             if self.startPos:
                 delta_x = event.pos().x() - self.startPos.x()
                 delta_y = event.pos().y() - self.startPos.y()
@@ -253,7 +257,7 @@ class ProxyWidget(QGraphicsProxyWidget):
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if self.scene().mode == 'move':
+        if self.scene().mode == Modes.move:
             self.border_selected = None
             self.startPos = None
         else:
