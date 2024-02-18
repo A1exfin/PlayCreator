@@ -124,7 +124,7 @@ class ProxyWidget(QGraphicsProxyWidget):
     #           'right': Qt.SizeHorCursor,
     #           'move': Qt.SizeAllCursor,
     #           'edited': Qt.IBeamCursor,
-    #           'erase': QCursor(QPixmap('Cursors/eraser.cur'), 0, 0)}
+    #           'erase': QCursor(QPixmap(eraser_cursor_path), 0, 0)}
 
     def __init__(self, pos, font, color):
         super().__init__()

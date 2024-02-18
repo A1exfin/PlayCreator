@@ -6,6 +6,7 @@ from Custom_scene_items.Item_line_action import ActionLine
 from Custom_scene_items.Item_final_action_arrow import FinalActionArrow
 from Custom_scene_items.Item_final_action_block import FinalActionBlock
 from Custom_scene_items.Item_rect import Rect
+from Custom_scene_items.Item_figure import Rectangle
 from Custom_scene_items.Item_ellipse import Ellipse
 from Custom_scene_items.Items_field_parts import FieldTriangle, FieldNumber
 from Custom_scene_items.ProxyLabel import ProxyWidget
@@ -301,15 +302,15 @@ class Field(QGraphicsScene):
         angle = self.get_angle(start_pos, finish_pos)
         if self.mode == Modes.route:
             arrow = FinalActionArrow(angle, self.start_pos,
-                            QPen(QColor(self.config['color']), self.config['line_thickness'],
-                                 Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
-                            self.current_player, self.mode)
+                                     QPen(QColor(self.config['color']), self.config['line_thickness'],
+                                          Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
+                                     self.current_player, self.mode)
             return arrow
         elif self.mode == Modes.block:
             line = FinalActionBlock(angle, self.start_pos,
-                              QPen(QColor(self.config['color']), self.config['line_thickness'],
-                                   Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
-                              self.current_player, self.mode)
+                                    QPen(QColor(self.config['color']), self.config['line_thickness'],
+                                                Qt.SolidLine, c=Qt.RoundCap, j=Qt.RoundJoin),
+                                    self.current_player, self.mode)
             return line
 
     def get_angle(self, start_pos, finish_pos):
@@ -337,31 +338,87 @@ class Field(QGraphicsScene):
             angle = 360 - degrees(acos((b ** 2 + c ** 2 - a ** 2) / (2.0 * b * c)))
         return angle
 
+    # def figure_mousePressEvent(self, event):  # Рисование фигур
+    #     if not self.painting and event.button() == Qt.LeftButton:
+    #         if self.check_field_border(event):
+    #             print('sdafls;d')
+    #             self.start_pos = event.scenePos()
+    #             if self.mode == Modes.rectangle:
+    #                 figure = Rectangle(True, self.config['color'], self.config['line_thickness'],
+    #                                    False, '#000000', '#22', self.start_pos.x(), self.start_pos.y(), 0, 0)
+    #             elif self.mode == Modes.ellipse:
+    #                 figure = Ellipse(True, self.config['color'], self.config['line_thickness'], False, '#000000', '#22',
+    #                                  self.start_pos.x(), self.start_pos.y(),
+    #                                  event.scenePos().x() - self.start_pos.x(), event.scenePos().y() - self.start_pos.y())
+    #             self.addItem(figure)
+    #             self.current_figure = figure
+    #             self.painting = True
+    #     elif self.painting and event.button() == Qt.LeftButton and self.current_figure:
+    #         if self.check_field_border(event):
+    #             self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(),
+    #                                          event.scenePos().x() - self.start_pos.x(),
+    #                                          event.scenePos().y() - self.start_pos.y())
+    #
+    # def figure_mouseMoveEvent(self, event):  # Рисование фигур
+    #     if self.painting and self.current_figure:
+    #         self.current_figure.prepareGeometryChange()
+    #         if self.check_field_border(event):
+    #             self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(),
+    #                                          event.scenePos().x() - self.start_pos.x(),
+    #                                          event.scenePos().y() - self.start_pos.y())
+    #             # self.current_figure.width = event.scenePos().x() - self.start_pos.x()
+    #             # self.current_figure.height = event.scenePos().y() - self.start_pos.y()
+    #         else:
+    #             self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(), 0, 0)
+    #             # self.current_figure.width, self.current_figure.height = 0, 0
+    #         self.update()
+    #
+    # def figure_mouseReleaseEvent(self, event):  # Рисование фигур
+    #     if self.painting and self.current_figure:
+    #         self.current_figure.prepareGeometryChange()
+    #         if self.check_field_border(event):
+    #             finish_pos = event.scenePos()
+    #             if event.scenePos().x() < self.start_pos.x():  # так сделано для того чтобы фигуры нарисованные обратным способом нормально прокликивались
+    #                 finish_pos.setX(self.start_pos.x())
+    #                 self.start_pos.setX(event.scenePos().x())
+    #             if event.scenePos().y() < self.start_pos.y():  # так сделано для того чтобы фигуры нарисованные обратным способом нормально прокликивались
+    #                 finish_pos.setY(self.start_pos.y())
+    #                 self.start_pos.setY(event.scenePos().y())
+    #             self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(),
+    #                                          finish_pos.x() - self.start_pos.x(),
+    #                                          finish_pos.y() - self.start_pos.y())
+    #             self.figures.append(self.current_figure)
+    #             self.start_pos = None
+    #             self.current_figure = None
+    #             self.painting = False
+    #         else:
+    #             self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(), 0, 0)
+
     def figure_mousePressEvent(self, event):  # Рисование фигур
         if not self.painting and event.button() == Qt.LeftButton:
             if self.check_field_border(event):
                 self.start_pos = event.scenePos()
                 if self.mode == Modes.rectangle:
-                    figure = Rect(QRectF(self.start_pos, event.scenePos()),
-                                   QPen(QColor(self.config['color']), self.config['line_thickness'],
-                                        self.config['pen_style']))
+                    figure = Rect(True, self.config['color'], self.config['line_thickness'],
+                                  False, '#000000', '#22', self.start_pos.x(), self.start_pos.y(), 0, 0)
                 elif self.mode == Modes.ellipse:
-                    figure = Ellipse(QRectF(self.start_pos, event.scenePos()),
-                                      QPen(QColor(self.config['color']), self.config['line_thickness'],
-                                           self.config['pen_style']))
+                    figure = Ellipse(True, self.config['color'], self.config['line_thickness'],
+                                     False, '#000000', '#22', self.start_pos.x(), self.start_pos.y(), 0, 0)
                 self.addItem(figure)
                 self.current_figure = figure
                 self.painting = True
-        elif self.painting and event.button() == Qt.LeftButton and self.current_figure:
-            if self.check_field_border(event):
-                self.current_figure.setRect(QRectF(self.start_pos, event.scenePos()))
+        # elif self.painting and event.button() == Qt.LeftButton and self.current_figure:
+        #     if self.check_field_border(event):
+        #         self.current_figure.setRect(QRectF(self.start_pos, event.scenePos()))
 
     def figure_mouseMoveEvent(self, event):  # Рисование фигур
         if self.painting and self.current_figure:
             if self.check_field_border(event):
-                self.current_figure.setRect(QRectF(self.start_pos, event.scenePos()))
+                self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(),
+                                             event.scenePos().x() - self.start_pos.x(),
+                                             event.scenePos().y() - self.start_pos.y())
             else:
-                self.current_figure.setRect(QRectF(self.start_pos, self.start_pos))
+                self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(), 0, 0)
             self.update()
 
     def figure_mouseReleaseEvent(self, event):  # Рисование фигур
@@ -374,13 +431,15 @@ class Field(QGraphicsScene):
                 if event.scenePos().y() < self.start_pos.y():  # так сделано для того чтобы фигуры нарисованные обратным способом нормально прокликивались
                     finish_pos.setY(self.start_pos.y())
                     self.start_pos.setY(event.scenePos().y())
-                self.current_figure.setRect(QRectF(self.start_pos, finish_pos))
+                self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(),
+                                             finish_pos.x() - self.start_pos.x(),
+                                             finish_pos.y() - self.start_pos.y())
                 self.figures.append(self.current_figure)
                 self.start_pos = None
                 self.current_figure = None
                 self.painting = False
             else:
-                self.current_figure.setRect(QRectF(self.start_pos, self.start_pos))
+                self.current_figure.set_rect(self.start_pos.x(), self.start_pos.y(), 0, 0)
 
     def delete_figures(self):
         '''Удаление всех фигур со сцены'''

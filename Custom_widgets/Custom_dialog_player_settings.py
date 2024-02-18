@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QDialog, QColorDialog, QLineEdit, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton,\
-    QButtonGroup, QGroupBox
-from PySide6.QtGui import QFont, QPainter, QPen, QBrush, QPolygonF, QColor, QLinearGradient
-from PySide6.QtCore import Qt, QLineF, QPointF, QRectF
+    QButtonGroup, QGroupBox, QSizePolicy, QSpacerItem
+from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt
 from Custom_widgets.Custom_buttons_for_player_settings import CustomPushButtonFillType
 from Custom_widgets.Custom_buttons_for_player_settings import CustomPushButtonSymbolType
 from Enum_flags import FillType, SymbolType
@@ -77,8 +77,8 @@ class DialogPlayerSettings(QDialog):
         self.push_button_current_player_color.setFixedSize(40, 40)
         self.push_button_current_player_color.setStyleSheet(f'background-color: {player_color}')
 
-        horizontal_layout_position = QVBoxLayout(self.group_box_position)
-        horizontal_layout_position.addWidget(self.line_edit_player_position)
+        vertical_layout_position = QVBoxLayout(self.group_box_position)
+        vertical_layout_position.addWidget(self.line_edit_player_position)
 
         grid_layout_text_colors = QGridLayout()
         grid_layout_text_colors.setVerticalSpacing(4)
@@ -87,12 +87,7 @@ class DialogPlayerSettings(QDialog):
             setattr(self, f'button_text_color_{i}', QPushButton(parent=self.group_box_text_color))
             getattr(self, f'button_text_color_{i}').setFixedSize(18, 18)
             getattr(self, f'button_text_color_{i}').setStyleSheet(f'background-color: {color}')
-            if i < len(self.COLORS) / 2:
-                row = 0
-                column = i + 1
-            else:
-                row = 1
-                column = i + 1 - len(self.COLORS) / 2
+            row, column = (0, i + 1) if i < len(self.COLORS) / 2 else (1, i + 1 - len(self.COLORS) / 2)
             grid_layout_text_colors.addWidget(getattr(self, f'button_text_color_{i}'), row, column, 1, 1)
 
         grid_layout_player_colors = QGridLayout()
@@ -102,12 +97,7 @@ class DialogPlayerSettings(QDialog):
             setattr(self, f'button_player_color_{i}', QPushButton(parent=self.group_box_player_color))
             getattr(self, f'button_player_color_{i}').setFixedSize(18, 18)
             getattr(self, f'button_player_color_{i}').setStyleSheet(f'background-color: {color}')
-            if i < len(self.COLORS) / 2:
-                row = 0
-                column = i + 1
-            else:
-                row = 1
-                column = i + 1 - len(self.COLORS) / 2
+            row, column = (0, i + 1) if i < len(self.COLORS) / 2 else (1, i + 1 - len(self.COLORS) / 2)
             grid_layout_player_colors.addWidget(getattr(self, f'button_player_color_{i}'), row, column, 1, 1)
 
         horizontal_layout_text_color = QHBoxLayout(self.group_box_text_color)
@@ -121,8 +111,10 @@ class DialogPlayerSettings(QDialog):
         self.horizontal_layout_fill_symbol_type = QHBoxLayout(self.group_box_fill_symbol_type)
 
         horizontal_layout_buttons = QHBoxLayout()
+        # horizontal_layout_buttons.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Expanding))
         horizontal_layout_buttons.addWidget(button_ok)
         horizontal_layout_buttons.addWidget(button_cancel)
+        # horizontal_layout_buttons.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Expanding))
 
         vertical_layout_main = QVBoxLayout()
         vertical_layout_main.addWidget(self.group_box_position)
@@ -150,15 +142,10 @@ class DialogFirstTeamPlayerSettings(DialogPlayerSettings):
         self.group_box_player_color.setTitle('Цвет контура и заливки')
         self.group_box_fill_symbol_type.setTitle('Тип заливки')
         self.push_button_white_fill = CustomPushButtonFillType(player_position, self.player_text, self.player_text_color, self.player_color, FillType.white, parent=self.group_box_fill_symbol_type)
-        self.push_button_white_fill.setObjectName('white')
         self.push_button_full_fill = CustomPushButtonFillType(player_position, self.player_text, self.player_text_color, self.player_color, FillType.full, parent=self.group_box_fill_symbol_type)
-        self.push_button_full_fill.setObjectName('full')
         self.push_button_left_fill = CustomPushButtonFillType(player_position, self.player_text, self.player_text_color, self.player_color, FillType.left, parent=self.group_box_fill_symbol_type)
-        self.push_button_left_fill.setObjectName('left')
         self.push_button_right_fill = CustomPushButtonFillType(player_position, self.player_text, self.player_text_color, self.player_color, FillType.right, parent=self.group_box_fill_symbol_type)
-        self.push_button_right_fill.setObjectName('right')
         self.push_button_mid_fill = CustomPushButtonFillType(player_position, self.player_text, self.player_text_color, self.player_color, FillType.mid, parent=self.group_box_fill_symbol_type)
-        self.push_button_mid_fill.setObjectName('mid')
 
         self.button_group_fill_symbol_type.addButton(self.push_button_white_fill)
         self.button_group_fill_symbol_type.addButton(self.push_button_full_fill)
@@ -323,4 +310,3 @@ class DialogSecondTeamPlayerSettings(DialogPlayerSettings):
             self.group_box_position.setEnabled(True)
             self.group_box_text_color.setEnabled(True)
             self.group_box_player_color.setEnabled(True)
-

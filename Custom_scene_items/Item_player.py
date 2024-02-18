@@ -17,7 +17,7 @@ class Player(QGraphicsItem):
         self.team = team
         self.position = position
         self.actions = {}
-        self.current_action_number = current_action_number + 1
+        self.current_action_number = current_action_number
         self.start_pos = None
         self.object_name = f'{team.name}_player_{position}'
         self.hover = False
@@ -25,6 +25,7 @@ class Player(QGraphicsItem):
         self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.ItemIsSelectable)
         self.setPos(x, y)
+        self.rect = self.boundingRect().adjusted(self.border_width, self.border_width, -self.border_width, -self.border_width)
 
     def boundingRect(self):
         return QRectF(0, 0, self.width, self.height)
@@ -34,6 +35,15 @@ class Player(QGraphicsItem):
         # for key, lst in self.actions.items():
         #     for line in lst:
         #         print(f'\n{key}: {line.return_data()}')
+        # self.setPos(10, 10)
+        print(f'{self.x() = }')
+        print(f'{self.y() = }')
+        print(f'{self.pos().x() = }')
+        print(f'{self.pos().y() = }')
+        print(f'{self.scenePos().x() = }')
+        print(f'{self.scenePos().y() = }')
+        # print(f'{event.scenePos().x() = }')
+        # print(f'{event.scenePos().y() = }')
         self.setZValue(20)
         if self.scene().mode == Modes.move:
             self.start_pos = event.scenePos()
@@ -52,10 +62,12 @@ class Player(QGraphicsItem):
         self.delete_actions()
         if self.scene().mode == Modes.move:
             if self.start_pos:
-                delta_x = event.scenePos().x() - self.start_pos.x()
-                delta_y = event.scenePos().y() - self.start_pos.y()
-                self.moveBy(delta_x, delta_y)
-                self.start_pos = QPointF(event.scenePos())
+                # pos = self.pos() + (event.scenePos() - self.start_pos)
+                # self.setPos(pos)
+                # self.start_pos = event.scenePos()
+                delta = event.scenePos() - self.start_pos
+                self.moveBy(delta.x(), delta.y())
+                self.start_pos = event.scenePos()
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
@@ -114,7 +126,6 @@ class FirstTeamPlayer(Player):
         self.set_linear_gradient(self.fill_type)
 
     def paint(self, painter: QPainter, option, widget=None):
-        self.rect = self.boundingRect().adjusted(self.border_width, self.border_width, -self.border_width, -self.border_width)
         painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
         painter.setFont(self.font)
         painter.setBrush(QBrush(self.gradient))
@@ -177,15 +188,15 @@ class FirstTeamPlayer(Player):
             self.gradient.setStart(10, 0)
             self.gradient.setFinalStop(10.001, 0)
             self.gradient.setColorAt(0, QColor('#afffffff'))
-            self.gradient.setColorAt(1, QColor(f'#af{self.fill_color[1:]}'))
+            self.gradient.setColorAt(1, QColor(f'#9f{self.fill_color[1:]}'))
         elif fill == FillType.mid:
             self.gradient = QLinearGradient()
             self.gradient.setStart(0, 0)
             self.gradient.setFinalStop(20, 0)
             self.gradient.setColorAt(0, QColor('#afffffff'))
             self.gradient.setColorAt(0.355, QColor('#afffffff'))
-            self.gradient.setColorAt(0.356, QColor(f'#af{self.fill_color[1:]}'))
-            self.gradient.setColorAt(0.650, QColor(f'#af{self.fill_color[1:]}'))
+            self.gradient.setColorAt(0.356, QColor(f'#9f{self.fill_color[1:]}'))
+            self.gradient.setColorAt(0.650, QColor(f'#9f{self.fill_color[1:]}'))
             self.gradient.setColorAt(0.651, QColor('#afffffff'))
             self.gradient.setColorAt(1, QColor('#afffffff'))
 
@@ -213,7 +224,6 @@ class SecondTeamPlayer(Player):
         self.line2 = QLineF(QPointF(self.width - 5, 5), QPointF(5, self.height - 5))
 
     def paint(self, painter: QPainter, option, widget=None):
-        self.rect = self.boundingRect().adjusted(self.border_width, self.border_width, -self.border_width, -self.border_width)
         painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
         painter.setBrush(QBrush(QColor('#bfffffff')))
         if self.symbol == SymbolType.letter:

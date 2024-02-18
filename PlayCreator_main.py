@@ -15,6 +15,7 @@ from Custom_widgets.Custom_dialog_new_playbook import DialogNewPlaybook
 from Custom_widgets.Custom_dialog_about import DialogAbout
 from Custom_widgets.Custom_dialog_sign_up import DialogSignUp
 from Custom_widgets.Custom_dialog_player_settings import DialogSecondTeamPlayerSettings, DialogFirstTeamPlayerSettings
+from Custom_widgets.Custom_dialog_figure_settings import DialogFigureSettings
 from Custom_widgets.Custom_list_item import CustomListItem
 
 from Custom_scene_items.Item_line_action import ActionLine##########################
@@ -130,17 +131,19 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         # self.test_func.setEnabled(False)
         # self.test_func.setVisible(False)
 
-        self.user_log_in()
+        # self.user_log_in()    ##########################  Установить неактивным создание нового плейбука
         # self.sign_up()
-
+        self.create_new_playbook()
+        # dialog = DialogFigureSettings(self.dialog_windows_text_color, Modes.ellipse, True, '#ff0000', 2, True, '#333333', '#22', parent=self)
+        # result = dialog.exec()
         # dialog = DialogFirstTeamPlayerSettings(self.dialog_windows_text_color, 'C', 'QW', '#ff0000', '#0000ff', 'right', parent=self)
         # result = dialog.exec()
         # dialog = DialogSecondTeamPlayerSettings(self.dialog_windows_text_color, 'W', '#ff0000', '#0000ff', 'x', parent=self)
         # result = dialog.exec()
 
     def qwe(self):
-        print(f'{self.current_scene.mode = }')
-        print(f'{type(self.current_scene.mode) = }')
+        ...
+        print(self.current_scene.figures)
         # print(f'{self.playbook.schemes = }')
         # print(self.playbook)
         # self.set_dark_theme()
@@ -158,7 +161,11 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         # if self.current_scene.additional_offence_player:
         #     print(f'{self.current_scene.additional_offence_player = }')
         #     print(f'{self.current_scene.additional_offence_player.team = }')
-
+        # for rect in self.current_scene.figures:
+            # print(f'{rect.rect().x() = }')
+            # print(f'{rect.rect().y() = }')
+            # print(f'{rect.scenePos().x() = }')
+            # print(f'{rect.scenePos().y() = }')
 
     def user_log_in(self, wrong_login_pass=False):
         dialog = DialogLogIn(self.dialog_windows_text_color, wrong_login_pass=wrong_login_pass, parent=self)
@@ -520,10 +527,10 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
                 bot_y = line.line().y2()
 
         for figure in scene.figures:
-            if figure.rect().y() < top_y:
-                top_y = figure.rect().y()
-            if figure.rect().bottom() > bot_y:
-                bot_y = figure.rect().bottom()
+            if figure.y() < top_y:
+                top_y = figure.y()
+            if figure.y() + figure.height() > bot_y:
+                bot_y = figure.y() + figure.height()
 
         for label in scene.labels:
             if label.y < top_y:

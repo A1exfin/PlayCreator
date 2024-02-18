@@ -815,6 +815,9 @@
           <property name="title">
            <string/>
           </property>
+          <property name="checkable">
+           <bool>false</bool>
+          </property>
           <layout class="QGridLayout" name="gridLayout">
            <item row="0" column="0">
             <widget class="QPushButton" name="pushButton_move">
@@ -1330,8 +1333,8 @@
            <string/>
           </property>
           <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <widget class="QComboBox" name="comboBox_line_thickness">
+           <item row="0" column="4">
+            <widget class="QPushButton" name="pushButton_delete_actions">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1344,51 +1347,33 @@
              <property name="minimumSize">
               <size>
                <width>40</width>
-               <height>25</height>
+               <height>40</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
                <width>40</width>
-               <height>25</height>
+               <height>40</height>
               </size>
              </property>
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
+             <property name="toolTip">
+              <string>Ctrl + Q</string>
              </property>
              <property name="statusTip">
-              <string>Толщина линий</string>
+              <string>Удаление всех действий игроков (Ctrl + Q)</string>
              </property>
-             <property name="currentIndex">
-              <number>0</number>
+             <property name="text">
+              <string/>
              </property>
-             <item>
-              <property name="text">
-               <string>2</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>3</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>4</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>5</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>6</string>
-              </property>
-             </item>
+             <property name="iconSize">
+              <size>
+               <width>35</width>
+               <height>35</height>
+              </size>
+             </property>
+             <property name="shortcut">
+              <string>Ctrl+Q</string>
+             </property>
             </widget>
            </item>
            <item row="0" column="1">
@@ -1529,8 +1514,8 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="4">
-            <widget class="QPushButton" name="pushButton_delete_actions">
+           <item row="0" column="9">
+            <widget class="QPushButton" name="pushButton_delete_pencil">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1553,10 +1538,10 @@
               </size>
              </property>
              <property name="toolTip">
-              <string>Ctrl + Q</string>
+              <string>Ctrl + F</string>
              </property>
              <property name="statusTip">
-              <string>Удаление всех действий игроков (Ctrl + Q)</string>
+              <string>Удаление карандаша (Ctrl + F)</string>
              </property>
              <property name="text">
               <string/>
@@ -1568,7 +1553,10 @@
               </size>
              </property>
              <property name="shortcut">
-              <string>Ctrl+Q</string>
+              <string>Ctrl+F</string>
+             </property>
+             <property name="checkable">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
@@ -1612,52 +1600,6 @@
              </property>
              <property name="shortcut">
               <string>R</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="6">
-            <widget class="QPushButton" name="pushButton_ellipse">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>40</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>40</width>
-               <height>40</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>T</string>
-             </property>
-             <property name="statusTip">
-              <string>Рисование эллипса (T)</string>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-             <property name="iconSize">
-              <size>
-               <width>35</width>
-               <height>35</height>
-              </size>
-             </property>
-             <property name="shortcut">
-              <string>T</string>
              </property>
              <property name="checkable">
               <bool>true</bool>
@@ -1710,6 +1652,52 @@
              </property>
             </widget>
            </item>
+           <item row="0" column="6">
+            <widget class="QPushButton" name="pushButton_ellipse">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>40</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>40</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>T</string>
+             </property>
+             <property name="statusTip">
+              <string>Рисование эллипса (T)</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>35</width>
+               <height>35</height>
+              </size>
+             </property>
+             <property name="shortcut">
+              <string>T</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
            <item row="0" column="8">
             <widget class="QPushButton" name="pushButton_pencil">
              <property name="enabled">
@@ -1756,8 +1744,8 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="9">
-            <widget class="QPushButton" name="pushButton_delete_pencil">
+           <item row="0" column="0">
+            <widget class="QComboBox" name="comboBox_line_thickness">
              <property name="enabled">
               <bool>false</bool>
              </property>
@@ -1770,36 +1758,51 @@
              <property name="minimumSize">
               <size>
                <width>40</width>
-               <height>40</height>
+               <height>25</height>
               </size>
              </property>
              <property name="maximumSize">
               <size>
                <width>40</width>
-               <height>40</height>
+               <height>25</height>
               </size>
              </property>
-             <property name="toolTip">
-              <string>Ctrl + F</string>
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
              </property>
              <property name="statusTip">
-              <string>Удаление карандаша (Ctrl + F)</string>
+              <string>Толщина линий</string>
              </property>
-             <property name="text">
-              <string/>
+             <property name="currentIndex">
+              <number>0</number>
              </property>
-             <property name="iconSize">
-              <size>
-               <width>35</width>
-               <height>35</height>
-              </size>
-             </property>
-             <property name="shortcut">
-              <string>Ctrl+F</string>
-             </property>
-             <property name="checkable">
-              <bool>false</bool>
-             </property>
+             <item>
+              <property name="text">
+               <string>2</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>3</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>4</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>5</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>6</string>
+              </property>
+             </item>
             </widget>
            </item>
           </layout>
@@ -2439,7 +2442,7 @@
   </action>
   <action name="action_new_playbook">
    <property name="enabled">
-    <bool>false</bool>
+    <bool>true</bool>
    </property>
    <property name="text">
     <string>Новый плейбук</string>
