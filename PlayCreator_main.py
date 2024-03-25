@@ -1,26 +1,24 @@
-from datetime import datetime
 import sys
-from PySide6.QtWidgets import *
-from PySide6.QtGui import *
-from PySide6.QtCore import *
-from PlayCreator_ui import *
-from Enum_flags import *
-from Custom_widgets.Custom_graphics_view import CustomGraphicsView
-from Custom_widgets.Custom_scene import Field
-from Data.Data_players import PlayersData
-from Data.Data_field import FieldData
-from Custom_scene_items.Item_player import FirstTeamPlayer, SecondTeamPlayer
-from Custom_widgets.Custom_dialog_log_in import DialogLogIn
-from Custom_widgets.Custom_dialog_new_playbook import DialogNewPlaybook
-from Custom_widgets.Custom_dialog_about import DialogAbout
-from Custom_widgets.Custom_dialog_sign_up import DialogSignUp
-from Custom_widgets.Custom_dialog_player_settings import DialogSecondTeamPlayerSettings, DialogFirstTeamPlayerSettings
-from Custom_widgets.Custom_dialog_figure_settings import DialogFigureSettings
-from Custom_widgets.Custom_list_item import CustomListItem
+import os
+from typing import TYPE_CHECKING, Union
+from datetime import datetime
+from time import sleep
+from PySide6.QtWidgets import QApplication, QSplashScreen, QMainWindow, QGraphicsScene, QButtonGroup, QLineEdit, \
+    QFileDialog, QInputDialog, QColorDialog, QMessageBox, QFrame
+from PySide6.QtGui import QActionGroup, QImage, QColor, QPainter, QFont, QPixmap, QIcon
+from PySide6.QtCore import Qt, Signal, QDir, QRectF, QRect, QFile, QTextStream
+from PlayCreator_ui import Ui_MainWindow
+from Enums import AppTheme, PlaybookType, Modes, TeamType, SymbolType
+from Dialog_windows import DialogSignUp, DialogLogIn, DialogAbout, DialogNewPlaybook, DialogOpenPlaybook
+from Playbook_scheme import Playbook, Scheme
+from Graphics import CustomGraphicsView, FirstTeamPlayer, SecondTeamPlayer, ActionLine, FinalActionArrow, FinalActionLine, \
+    Rectangle, Ellipse, PencilLine, ProxyWidgetLabel
+from DB_offline.queryes import create_db_if_not_exists, get_user_settings, get_playbook_info, select_playbook, save_playbook, save_user_settings, \
+    save_new_playbook, drop_tables
 
-from Custom_scene_items.Item_line_action import ActionLine##########################
-from Playbook import Playbook
-# style = os.path.join(os.path.dirname(__file__), 'PlayCreator_dark_theme.css')
+if TYPE_CHECKING:
+    from DB_offline.models import UserSettingsORM
+    from Graphics import Field
 
 
 def timeit(func):
@@ -40,43 +38,41 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
     colorChanged = Signal(str)
     version = '3.0'
 
-    def __init__(self):
+    def __init__(self, settings_orm: 'UserSettingsORM'):
         super().__init__()
         self.setupUi(self)
         # self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        self.settings_orm = settings_orm
+        self.playbook_orm = None
         self.user = None
-        self.field_data = FieldData()
-        self.players_data = PlayersData(self.field_data)
-        self.playbook = None
-
-        self.chosen_list_item = None
-        self.current_scene: Field | None = None
         self.current_theme = None
-        self.dialog_windows_text_color = None
-        self.ico_about_path = None
+        self.about_ico_path = None
+
+        self.playbook: Union['Playbook', None] = None
+        self.chosen_scheme: Union['Scheme', None] = None
+        self.current_scene: Union['Field', None] = None
+
         self.graphics_view = CustomGraphicsView(parent=self.centralwidget)
         self.gridLayout_2.addWidget(self.graphics_view, 0, 0, 2, 1)
         self.label_set_current_zoom(self.graphics_view.current_zoom)
-        # self.enable_disable_gui(False)
 
         action_theme_group = QActionGroup(self)
         action_theme_group.addAction(self.action_dark_theme)
         action_theme_group.addAction(self.action_light_theme)
         action_theme_group.setExclusive(True)
-        self.action_dark_theme.setChecked(True)
-        self.set_dark_theme()
-        # self.action_light_theme.setChecked(True)
-        # self.set_light_theme()
 
-        self.toolBar_main.toggleViewAction().setText('Панель инструментов')
-        self.toolBar_main.toggleViewAction().setStatusTip('Панель инструментов')
-        self.menu_additional.insertAction(self.action_QB_Wrist, self.toolBar_main.toggleViewAction())
+        getattr(self, f'action_{self.settings_orm.theme.name}_theme').setChecked(True)
+        getattr(self, f'set_{self.settings_orm.theme.name}_theme')()
+        self.showMaximized() if self.settings_orm.maximized else self.showNormal()
+        self.addToolBar(self.settings_orm.toolbar_area, self.toolBar_main)
+        self.toolBar_main.show() if self.settings_orm.toolbar_condition else self.toolBar_main.hide()
+        self.action_toolbar_condition.setChecked(self.settings_orm.toolbar_condition)
 
         mode_group = QButtonGroup(parent=self)
         mode_group.setExclusive(True)
         for mode in Modes:
             button = getattr(self, f'pushButton_{mode.name}')
-            button.pressed.connect(lambda mode=mode: self.current_scene.set_mode(mode))
+            button.pressed.connect(lambda mode=mode: self.current_scene.set_mode(mode) if self.current_scene else ...)
             mode_group.addButton(button)
         for i, color in enumerate(COLORS):
             button = getattr(self, f'pushButton_color_{i}')
@@ -85,36 +81,45 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
 
         self.graphics_view.zoomChanged.connect(self.label_set_current_zoom)
 
-        # self.comboBox_team_type_football.currentIndexChanged.connect(self.team_type_changed_football)
         self.lineEdit_yards.textChanged.connect(lambda text: getattr(self, f'check_max_yards_{self.playbook.type.name}')(text))
-        self.pushButton_place_first_team.clicked.connect(lambda: getattr(self, f'place_first_team_{self.playbook.type.name}')())
-        self.pushButton_add_additional_off_player.clicked.connect(lambda: getattr(self, f'place_additional_offence_player_{self.playbook.type.name}')())
-        self.pushButton_place_second_team.clicked.connect(lambda: getattr(self, f'place_second_team_{self.playbook.type.name}')())
-        self.pushButton_del_additional_off_player.clicked.connect(self.delete_additional_offence_player)
-        self.pushButton_delete_second_team.clicked.connect(self.delete_second_team)
-        self.pushButton_delete_all_players.clicked.connect(self.clear_scene)
-        self.comboBox_second_players_symbol.currentIndexChanged.connect(self.second_team_symbol_changed)
 
-        self.comboBox_line_thickness.currentTextChanged.connect(lambda thickness: self.current_scene.set_config('line_thickness', int(thickness)))
-        self.fontComboBox.currentFontChanged.connect(self.combobox_font_changed)
-        self.comboBox_font_size.currentTextChanged.connect(self.font_size_changed)
-        self.pushButton_bold.toggled.connect(self.bold_changed)
-        self.pushButton_italic.toggled.connect(self.italic_changed)
-        self.pushButton_underline.toggled.connect(self.underline_changed)
+        self.pushButton_place_first_team.clicked.connect(lambda: getattr(self, f'place_first_team_{self.playbook.type.name}')(self.current_scene) if self.current_scene else ...)
+        self.pushButton_add_additional_off_player.clicked.connect(lambda: self.place_additional_offence_player(self.current_scene) if self.current_scene else ...)
+        self.pushButton_place_second_team.clicked.connect(lambda: getattr(self, f'place_second_team_{self.playbook.type.name}')(self.current_scene) if self.current_scene else ...)
+        self.pushButton_del_additional_off_player.clicked.connect(lambda: self.delete_additional_offence_player(self.current_scene) if self.current_scene else ...)
+        self.pushButton_delete_second_team.clicked.connect(lambda: self.delete_second_team(self.current_scene) if self.current_scene else ...)
+        self.pushButton_delete_all_players.clicked.connect(lambda: self.delete_all_players(self.current_scene) if self.current_scene else ...)
+        self.comboBox_second_players_symbol.currentIndexChanged.connect(lambda: self.second_team_symbol_changed(self.current_scene) if self.current_scene else ...)
+
+        self.pushButton_delete_actions.clicked.connect(lambda: self.current_scene.delete_all_players_actions() if self.current_scene else ...)
+        self.pushButton_delete_figures.clicked.connect(lambda: self.current_scene.delete_figures() if self.current_scene else ...)
+        self.pushButton_delete_labels.clicked.connect(lambda: self.current_scene.delete_labels() if self.current_scene else ...)
+        self.pushButton_delete_pencil.clicked.connect(lambda: self.current_scene.delete_pencil() if self.current_scene else ...)
+
+        self.comboBox_line_thickness.currentTextChanged.connect(lambda thickness: self.current_scene.set_config('line_thickness', int(thickness)) if self.current_scene else ...)
+        self.fontComboBox.currentFontChanged.connect(lambda font: self.combobox_font_changed(self.current_scene, font) if self.current_scene else ...)
+        self.comboBox_font_size.currentTextChanged.connect(lambda font_size: self.font_size_changed(self.current_scene, font_size) if self.current_scene else ...)
+        self.pushButton_bold.toggled.connect(lambda bold_condition: self.bold_changed(self.current_scene, bold_condition) if self.current_scene else ...)
+        self.pushButton_italic.toggled.connect(lambda italic_condition: self.italic_changed(self.current_scene, italic_condition) if self.current_scene else ...)
+        self.pushButton_underline.toggled.connect(lambda underline_condition: self.underline_changed(self.current_scene, underline_condition) if self.current_scene else ...)
+        self.colorChanged.connect(lambda color: self.color_changed(self.current_scene, color) if self.current_scene else ...)
         self.pushButton_current_color.clicked.connect(self.set_user_color)
-        self.colorChanged.connect(self.color_changed)
 
         self.action_user_login.triggered.connect(self.user_log_in)
         self.action_user_logout.triggered.connect(self.user_log_out)
 
-        self.action_new_playbook.triggered.connect(self.create_new_playbook)
-        self.action_close_programm.triggered.connect(lambda: sys.exit(app.exec()))
-        self.action_save_like_picture.triggered.connect(self.save_on_picture)
-        self.action_save_all_like_picture.triggered.connect(self.save_all_schemes_on_picture)
-        self.action_about.triggered.connect(self.about_clicked)
-        self.action_presentation_mode.toggled.connect(self.presentation_mode)
+        self.action_close_programm.triggered.connect(lambda: self.close())
         self.action_dark_theme.toggled.connect(self.set_dark_theme)
         self.action_light_theme.toggled.connect(self.set_light_theme)
+        self.action_toolbar_condition.toggled.connect(lambda: self.toolBar_main.hide() if not self.action_toolbar_condition.isChecked() else self.toolBar_main.show())
+        self.action_about.triggered.connect(self.about_clicked)
+        self.action_presentation_mode.toggled.connect(self.presentation_mode)
+        self.action_new_playbook.triggered.connect(self.new_playbook)
+        self.action_open_playbook_offline.triggered.connect(self.open_playbook_offline)
+        self.action_save_playbook_offline.triggered.connect(self.save_current_playbook_offline)
+        self.action_save_playbook_offline_as.triggered.connect(self.save_current_playbook_offline_as)
+        self.action_save_like_picture.triggered.connect(lambda: self.save_current_scheme_on_picture(self.current_scene) if self.current_scene else ...)
+        self.action_save_all_like_picture.triggered.connect(self.save_all_schemes_on_picture)
 
         self.pushButton_add_scheme.clicked.connect(self.add_new_scheme)
         self.pushButton_delete_scheme.clicked.connect(self.delete_current_scheme)
@@ -123,76 +128,72 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         self.pushButton_edit_scheme.clicked.connect(self.edit_current_scheme)
         self.pushButton_edit_playbook_name.clicked.connect(self.edit_playbook_name)
         self.listWidget_schemes.itemDoubleClicked.connect(self.choose_current_scheme)
+        # self.listWidget_schemes.itemClicked.connect(lambda : print(self.listWidget_schemes.currentItem()))  # для отладки
 
-        # self.test_func.clicked.connect(self.test_fn)############################## тестовая функция
-        # self.test_func.clicked.connect(self.set_dark_theme)  ############################## тестовая функция
-        # self.test_func.clicked.connect(self.set_light_theme)  ############################## тестовая функция
-        self.test_func.clicked.connect(self.qwe)  ############################## тестовая функция
-        # self.test_func.setEnabled(False)
-        # self.test_func.setVisible(False)
+        # self.test_func.clicked.connect(self.set_dark_theme)  ############################## тестовая функция для отладки
+        # self.test_func.clicked.connect(self.set_light_theme)  ############################## тестовая функция для отладки
+        # self.test_func.clicked.connect(self.test_fn)  ############################## тестовая функция
+        self.test_func.setEnabled(False)
+        self.test_func.setVisible(False)
 
         # self.user_log_in()    ##########################  Установить неактивным создание нового плейбука
         # self.sign_up()
-        self.create_new_playbook()
+
         # dialog = DialogFigureSettings(self.dialog_windows_text_color, Modes.ellipse, True, '#ff0000', 2, True, '#333333', '#22', parent=self)
         # result = dialog.exec()
         # dialog = DialogFirstTeamPlayerSettings(self.dialog_windows_text_color, 'C', 'QW', '#ff0000', '#0000ff', 'right', parent=self)
         # result = dialog.exec()
         # dialog = DialogSecondTeamPlayerSettings(self.dialog_windows_text_color, 'W', '#ff0000', '#0000ff', 'x', parent=self)
         # result = dialog.exec()
+        # dialog = DialogOpenPlaybook(self.dialog_windows_text_color, get_playbook_info(), parent=self)
+        # dialog.exec()
 
-    def qwe(self):
+    '''-----------------------------------------------------------------------------------------------------------------
+    ------------------------------------------------------Методы отладки------------------------------------------------
+    -----------------------------------------------------------------------------------------------------------------'''
+
+    def test_fn(self):
         ...
-        print(self.current_scene.figures)
-        # print(f'{self.playbook.schemes = }')
+        # print(self)
+
+        # print(self.playbook_orm)
+        # print(self.playbook_orm.schemes)
+
         # print(self.playbook)
-        # self.set_dark_theme()
+
+        # print(f'{self.playbook.schemes = }')
+        # print(f'{len(self.playbook.schemes) = }')
         # print(f'{self.current_scene.first_team_placed = }')
         # print(f'{self.current_scene.second_team_placed = }')
+
+        # print(f'{self.current_scene.first_team_players = }')
+        # print(f'{len(self.current_scene.first_team_players) = }')
+        # print(f'{self.current_scene.deleted_first_team_players = }')
+        # print(f'{len(self.current_scene.deleted_first_team_players) = }')
+
         # print(f'{self.current_scene.additional_offence_player = }')
-        # if self.current_scene.first_team_placed:
-        #     print(f'{self.current_scene.first_team_placed = }')
-        #     for player in self.current_scene.first_team_players:
-        #         print(f'{player.team = }')
-        # if self.current_scene.second_team_placed:
-        #     print(f'{self.current_scene.second_team_placed = }')
-        #     for player in self.current_scene.second_team_players:
-        #         print(f'{player.team = }')
-        # if self.current_scene.additional_offence_player:
-        #     print(f'{self.current_scene.additional_offence_player = }')
-        #     print(f'{self.current_scene.additional_offence_player.team = }')
-        # for rect in self.current_scene.figures:
-            # print(f'{rect.rect().x() = }')
-            # print(f'{rect.rect().y() = }')
-            # print(f'{rect.scenePos().x() = }')
-            # print(f'{rect.scenePos().y() = }')
+        # print(f'{self.current_scene.deleted_additional_offence_player = }')
 
-    def user_log_in(self, wrong_login_pass=False):
-        dialog = DialogLogIn(self.dialog_windows_text_color, wrong_login_pass=wrong_login_pass, parent=self)
-        dialog.exec()
-        result, login, password = dialog.result(), dialog.line_edit_login.text(), dialog.line_edit_password.text()
-        if result == 1:
-            if login == 'admin' and password == 'admin':
-                self.user = login
-                self.set_gui_enter_offline()
-                self.set_gui_enter_exit_online(True)
-            else:
-                self.user_log_in(wrong_login_pass=True)
-        elif result == 0:
-            self.set_gui_enter_offline()
-        elif result == 2:
-            print('Регистрация')
+        # print(f'{self.current_scene.second_team_players = }')
+        # print(f'{len(self.current_scene.second_team_players) = }')
+        # print(f'{self.current_scene.deleted_second_team_players = }')
+        # print(f'{len(self.current_scene.deleted_second_team_players) = }')
 
-    def user_log_out(self):
-        if self.playbook:
-            dialog_save_current_playbook = QMessageBox(QMessageBox.Question, '', 'Сохранить текущий плейбук на сервере?', parent=self)
-            dialog_save_current_playbook.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
-            dialog_save_current_playbook.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
-            dialog_save_current_playbook.exec()
-            if not dialog_save_current_playbook.result():
-                print('Сохранение')
-        self.user = None
-        self.set_gui_enter_exit_online(False)
+        # print(f'{self.current_scene.rectangles = }')
+        # print(f'{len(self.current_scene.rectangles) = }')
+        # print(f'{self.current_scene.ellipses = }')
+        # print(f'{len(self.current_scene.ellipses) = }')
+
+        # print(f'{self.current_scene.labels = }')
+        # print(f'{len(self.current_scene.labels) = }')
+        # print(f'{self.current_scene.current_label = }')
+
+        # print(f'{self.current_scene.pencil = }')
+        # print(f'{len(self.current_scene.pencil) = }')
+
+        # print(f'{self.current_scene.zoom = }')
+        # print(f'{self.current_scene.view_point = }')
+        # print(f'{self.current_scene.focusItem() = }')
 
     def set_gui_enter_offline(self):
         self.action_user_login.setEnabled(True)
@@ -207,56 +208,14 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             self.action_save_playbook_online.setEnabled(condition)
         self.setWindowTitle(f'PlayCreator - {self.user}') if condition else self.setWindowTitle('PlayCreator')
 
-    def sign_up(self):
-        dialog = DialogSignUp(self.dialog_windows_text_color, parent=self)
-        dialog.exec()
-
-    def create_new_playbook(self):
-        def new_playbook_dialog():
-            dialog = DialogNewPlaybook(self.dialog_windows_text_color, parent=self)
-            result, playbook_name = dialog.exec(), dialog.line_edit.text().strip()
-            if result == 1 and len(playbook_name) > 0:
-                if dialog.radio_button_football.isChecked():
-                    self.playbook = Playbook(playbook_name, PlaybookType.football)
-                elif dialog.radio_button_flag.isChecked():
-                    self.playbook = Playbook(playbook_name, PlaybookType.flag)
-                self.set_gui_for_playbook()
-                self.label_playbook_name.setText(playbook_name)
-
-        if self.playbook:
-            question_dialog_new_playbook = QMessageBox(QMessageBox.Question, '', 'Создать новый плейбук?', parent=self)
-            question_dialog_new_playbook.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
-            question_dialog_new_playbook.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
-            question_dialog_new_playbook.exec()
-            if not question_dialog_new_playbook.result():
-                question_dialog_save_current_playbook = QMessageBox(QMessageBox.Question, '', 'Сохранить текущий плейбук?', parent=self)
-                question_dialog_save_current_playbook.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
-                question_dialog_save_current_playbook.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
-                question_dialog_save_current_playbook.exec()
-                if not question_dialog_save_current_playbook.result():
-                    print('Сохранение')
-                if self.current_scene:
-                    temp_scene = QGraphicsScene(parent=self)
-                    self.graphics_view.setScene(temp_scene)
-                    temp_scene.deleteLater()
-                    del temp_scene
-                    self.current_scene.deleteLater()
-                    self.current_scene = None
-                self.playbook = None
-                self.chosen_list_item = None
-                self.listWidget_schemes.clear()
-                self.label_playbook_name.setText('')
-                self.enable_disable_gui(False)
-                new_playbook_dialog()
-        else:
-            new_playbook_dialog()
-
     def set_gui_for_playbook(self):
         self.action_save_playbook_offline.setEnabled(True)
-        self.pushButton_add_scheme.setEnabled(True)
-        self.pushButton_edit_playbook_name.setEnabled(True)
+        self.action_save_playbook_offline_as.setEnabled(True)
         if self.user:
             self.action_save_playbook_online.setEnabled(True)
+            # self.action_save_playbook_online_as.setEnabled(True)
+        self.pushButton_add_scheme.setEnabled(True)
+        self.pushButton_edit_playbook_name.setEnabled(True)
         if self.playbook.type == PlaybookType.football:
             self.lineEdit_yards.setInputMask('999')
             self.lineEdit_yards.setMaxLength(3)
@@ -271,6 +230,10 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             self.comboBox_team_type.setVisible(False)
 
     def enable_disable_gui(self, condition: bool):
+        self.action_save_playbook_offline.setEnabled(condition)
+        self.action_save_playbook_offline_as.setEnabled(condition)
+        if self.user:
+            self.action_save_playbook_online.setEnabled(condition)
         for mode in Modes:
             button = getattr(self, f'pushButton_{mode.name}')
             button.setEnabled(condition)
@@ -290,8 +253,9 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         self.fontComboBox.setEnabled(condition)
         self.action_save_like_picture.setEnabled(condition)
         self.action_save_all_like_picture.setEnabled(condition)
-
+        self.pushButton_edit_playbook_name.setEnabled(condition)
         self.pushButton_edit_scheme.setEnabled(condition)
+        self.pushButton_add_scheme.setEnabled(condition)
         self.pushButton_delete_scheme.setEnabled(condition)
         self.pushButton_scheme_move_up.setEnabled(condition)
         self.pushButton_scheme_move_down.setEnabled(condition)
@@ -309,20 +273,22 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             self.comboBox_second_players_symbol.setEnabled(condition)
             self.pushButton_delete_second_team.setEnabled(condition)
             self.pushButton_delete_all_players.setEnabled(condition)
+            # self.pushButton_edit_playbook_name.setEnabled(condition)
+            # self.pushButton_add_scheme.setEnabled(condition)
             self.pushButton_delete_scheme.setEnabled(condition)
             self.pushButton_scheme_move_up.setEnabled(condition)
             self.pushButton_scheme_move_down.setEnabled(condition)
 
     def set_gui_first_team_placed(self):
+        self.comboBox_team_type.setEnabled(False)
+        self.lineEdit_yards.setEnabled(False)
         self.pushButton_place_first_team.setEnabled(False)
         self.pushButton_place_second_team.setEnabled(True)
-        self.lineEdit_yards.setEnabled(False)
-        self.comboBox_team_type.setEnabled(False)
         self.pushButton_delete_all_players.setEnabled(True)
         if (self.playbook.type == PlaybookType.football and self.comboBox_team_type.currentIndex() == 0) or self.playbook.type == PlaybookType.flag:
             self.pushButton_add_additional_off_player.setVisible(True)
-            self.pushButton_add_additional_off_player.setEnabled(True)
             self.pushButton_del_additional_off_player.setVisible(True)
+            self.pushButton_add_additional_off_player.setEnabled(True)
             self.pushButton_del_additional_off_player.setEnabled(False)
 
     def set_gui_for_second_team(self, condition: bool):
@@ -339,22 +305,18 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         if self.playbook.type == PlaybookType.football:
             self.comboBox_team_type.setEnabled(True)
         self.lineEdit_yards.setEnabled(True)
-        # if self.comboBox_team_type_football.currentIndex() == 1:
-        #     self.lineEdit_yards_football.setEnabled(False)
-        # else:
-        #     self.lineEdit_yards_football.setEnabled(True)
         self.pushButton_place_first_team.setEnabled(True)
-        self.pushButton_add_additional_off_player.setEnabled(False)
         self.pushButton_add_additional_off_player.setVisible(False)
-        self.pushButton_del_additional_off_player.setEnabled(False)
         self.pushButton_del_additional_off_player.setVisible(False)
+        self.pushButton_add_additional_off_player.setEnabled(False)
+        self.pushButton_del_additional_off_player.setEnabled(False)
         self.pushButton_place_second_team.setEnabled(False)
         self.pushButton_delete_second_team.setEnabled(False)
         self.pushButton_delete_all_players.setEnabled(False)
         self.comboBox_second_players_symbol.setEnabled(False)
         self.comboBox_second_players_symbol.setVisible(False)
 
-    def set_gui_for_current_scene_football(self):
+    def set_gui_for_current_scene(self):
         self.fontComboBox.setCurrentFont(self.current_scene.config['font_type'])
         self.comboBox_font_size.setCurrentText(str(self.current_scene.config['font_size']))
         self.pushButton_bold.setChecked(self.current_scene.config['bold'])
@@ -374,88 +336,288 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
                 self.comboBox_team_type.setCurrentIndex(0)
                 self.pushButton_add_additional_off_player.setVisible(True)
                 self.pushButton_del_additional_off_player.setVisible(True)
-                condition = True if self.current_scene.additional_offence_player else False
-                self.set_gui_for_additional_offence_player(condition)
+                self.set_gui_for_additional_offence_player(True if self.current_scene.additional_offence_player else False)
             elif self.current_scene.first_team_placed == TeamType.kickoff:
-                self.pushButton_add_additional_off_player.setVisible(False)
-                self.pushButton_del_additional_off_player.setVisible(False)
                 self.comboBox_team_type.setCurrentIndex(1)
+                self.pushButton_add_additional_off_player.setVisible(False)
+                self.pushButton_del_additional_off_player.setVisible(False)
             elif self.current_scene.first_team_placed == TeamType.punt_kick:
-                self.pushButton_add_additional_off_player.setVisible(False)
-                self.pushButton_del_additional_off_player.setVisible(False)
                 self.comboBox_team_type.setCurrentIndex(2)
-            elif self.current_scene.first_team_placed == TeamType.field_goal_off:
                 self.pushButton_add_additional_off_player.setVisible(False)
                 self.pushButton_del_additional_off_player.setVisible(False)
+            elif self.current_scene.first_team_placed == TeamType.field_goal_off:
                 self.comboBox_team_type.setCurrentIndex(3)
-            condition = True if self.current_scene.second_team_placed else False
-            self.set_gui_for_second_team(condition)
+                self.pushButton_add_additional_off_player.setVisible(False)
+                self.pushButton_del_additional_off_player.setVisible(False)
+            self.set_gui_for_second_team(True if self.current_scene.second_team_placed else False)
         else:
             self.set_gui_all_teams_deleted()
 
+    def closeEvent(self, event):
+        save_user_settings(self.settings_orm, self.return_data())
+
+    def save_current_playbook_offline(self):
+        if self.playbook_orm:
+            save_playbook(self.playbook, self.playbook_orm)
+        else:
+            new_playbook_id = save_new_playbook(self.playbook)
+            self.listWidget_schemes.clear()
+            self.load_playbook(new_playbook_id)
+            if len(self.playbook.schemes) > 0:
+                self.enable_disable_gui(True)
+                self.listWidget_schemes.setCurrentRow(0)
+                self.choose_current_scheme()
+
+    def save_current_playbook_offline_as(self):
+        dialog_get_playbook_name = QInputDialog(parent=self)
+        dialog_get_playbook_name.setOkButtonText('ОК')
+        dialog_get_playbook_name.setCancelButtonText('Отмена')
+        text, result = dialog_get_playbook_name.getText(self, 'Сохранить плейбук как...', 'Название плейбука: ', QLineEdit.Normal, self.playbook.name)
+        if result:
+            new_playbook_id = save_new_playbook(self.playbook, text.strip())
+            self.listWidget_schemes.clear()
+            self.load_playbook(new_playbook_id)
+            if len(self.playbook.schemes) > 0:
+                self.enable_disable_gui(True)
+                self.listWidget_schemes.setCurrentRow(0)
+                self.choose_current_scheme()
+
+    def open_playbook_offline(self):
+        def open_playbook_dialog():
+            dialog = DialogOpenPlaybook(get_playbook_info(), parent=self)
+            dialog.exec()
+            if dialog.result():
+                playbook_id = dialog.table_playbooks.item(dialog.table_playbooks.currentRow(), 0).text()
+                self.load_playbook(int(playbook_id))
+                if len(self.playbook.schemes) > 0:
+                    self.enable_disable_gui(True)
+                    self.listWidget_schemes.setCurrentRow(0)
+                    self.choose_current_scheme()
+
+        if self.playbook:
+            if self.user:
+                question_dialog_save_current_playbook_online = QMessageBox(QMessageBox.Question, 'Сохранение', 'Сохранить текущий плейбук на сервере?', parent=self)
+                question_dialog_save_current_playbook_online.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
+                question_dialog_save_current_playbook_online.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
+                question_dialog_save_current_playbook_online.exec()
+                if not question_dialog_save_current_playbook_online.result():
+                    ...
+                    # print('СОХРАНЕНИЕ НА СЕРВЕРЕ')
+            question_dialog_save_current_playbook_offline = QMessageBox(QMessageBox.Question, 'Сохранение', 'Сохранить текущий плейбук на компьютере?', parent=self)
+            question_dialog_save_current_playbook_offline.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
+            question_dialog_save_current_playbook_offline.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
+            question_dialog_save_current_playbook_offline.exec()
+            if not question_dialog_save_current_playbook_offline.result():
+                self.save_current_playbook_offline()
+            if self.current_scene:
+                temp_scene = QGraphicsScene(parent=self)
+                self.graphics_view.setScene(temp_scene)
+                temp_scene.deleteLater()
+                del temp_scene
+                self.current_scene.deleteLater()
+                self.current_scene = None
+            self.playbook = None
+            self.chosen_scheme = None
+            self.listWidget_schemes.clear()
+            self.label_playbook_name.setText('')
+            self.enable_disable_gui(False)
+            open_playbook_dialog()
+        else:
+            open_playbook_dialog()
+
+    def load_playbook(self, playbook_id: int):
+        playbook_orm = select_playbook(playbook_id)
+        self.playbook_orm = playbook_orm
+        self.create_playbook(*playbook_orm.return_data())
+        for scheme_orm in playbook_orm.schemes:
+            _, *scheme_data = scheme_orm.return_data()
+            scheme = self.create_scheme(*scheme_data)
+            for rect_orm in scheme_orm.rectangles:
+                rect = Rectangle(*rect_orm.return_data())
+                scheme.scene.addItem(rect)
+                scheme.scene.rectangles.append(rect)
+            for ellipse_orm in scheme_orm.ellipses:
+                ellipse = Ellipse(*ellipse_orm.return_data())
+                scheme.scene.addItem(ellipse)
+                scheme.scene.ellipses.append(ellipse)
+            for label_orm in scheme_orm.labels:
+                label = ProxyWidgetLabel(*label_orm.return_data())
+                scheme.scene.addItem(label)
+                scheme.scene.labels.append(label)
+            for pencil_line_orm in scheme_orm.pencil_lines:
+                pencil_line = PencilLine(*pencil_line_orm.return_data())
+                scheme.scene.addItem(pencil_line)
+                scheme.scene.pencil.append(pencil_line)
+            for player_orm in scheme_orm.players:
+                if player_orm.team_type == TeamType.offence or player_orm.team_type == TeamType.kickoff\
+                        or player_orm.team_type == TeamType.punt_kick or player_orm.team_type == TeamType.field_goal_off:
+                    player = FirstTeamPlayer(*player_orm.return_data())
+                    scheme.scene.addItem(player)
+                    scheme.scene.first_team_players.append(player)
+                    for line_orm in player_orm.lines:
+                        line = ActionLine(player, *line_orm.return_data())
+                        if f'action_number:{line.action_number}' not in player.actions.keys():
+                            player.actions[f'action_number:{line.action_number}'] = []
+                        player.actions[f'action_number:{line.action_number}'].append(line)
+                        scheme.scene.addItem(line)
+                    for fa_arrow_orm in player_orm.action_finishes_arr:
+                        fa_arrow = FinalActionArrow(player, *fa_arrow_orm.return_data())
+                        player.actions[f'action_number:{fa_arrow.action_number}'].append(fa_arrow)
+                        scheme.scene.addItem(fa_arrow)
+                    for fa_line_orm in player_orm.action_finishes_line:
+                        fa_line = FinalActionLine(player, *fa_line_orm.return_data())
+                        player.actions[f'action_number:{fa_line.action_number}'].append(fa_line)
+                        scheme.scene.addItem(fa_line)
+                elif player_orm.team_type == TeamType.defence or player_orm.team_type == TeamType.kick_ret\
+                        or player_orm.team_type == TeamType.punt_ret or player_orm.team_type == TeamType.field_goal_def:
+                    player = SecondTeamPlayer(*player_orm.return_data())
+                    scheme.scene.addItem(player)
+                    scheme.scene.second_team_players.append(player)
+                    for line_orm in player_orm.lines:
+                        line = ActionLine(player, *line_orm.return_data())
+                        if f'action_number:{line.action_number}' not in player.actions.keys():
+                            player.actions[f'action_number:{line.action_number}'] = []
+                        player.actions[f'action_number:{line.action_number}'].append(line)
+                        scheme.scene.addItem(line)
+                    for fa_arrow_orm in player_orm.action_finishes_arr:
+                        fa_arrow = FinalActionArrow(player, *fa_arrow_orm.return_data())
+                        player.actions[f'action_number:{fa_arrow.action_number}'].append(fa_arrow)
+                        scheme.scene.addItem(fa_arrow)
+                    for fa_line_orm in player_orm.action_finishes_line:
+                        fa_line = FinalActionLine(player, *fa_line_orm.return_data())
+                        player.actions[f'action_number:{fa_line.action_number}'].append(fa_line)
+                        scheme.scene.addItem(fa_line)
+                else:
+                    player = FirstTeamPlayer(*player_orm.return_data())
+                    scheme.scene.addItem(player)
+                    scheme.scene.additional_offence_player = player
+                    for line_orm in player_orm.lines:
+                        line = ActionLine(player, *line_orm.return_data())
+                        if f'action_number:{line.action_number}' not in player.actions.keys():
+                            player.actions[f'action_number:{line.action_number}'] = []
+                        player.actions[f'action_number:{line.action_number}'].append(line)
+                        scheme.scene.addItem(line)
+                    for fa_arrow_orm in player_orm.action_finishes_arr:
+                        fa_arrow = FinalActionArrow(player, *fa_arrow_orm.return_data())
+                        player.actions[f'action_number:{fa_arrow.action_number}'].append(fa_arrow)
+                        scheme.scene.addItem(fa_arrow)
+                    for fa_line_orm in player_orm.action_finishes_line:
+                        fa_line = FinalActionLine(player, *fa_line_orm.return_data())
+                        player.actions[f'action_number:{fa_line.action_number}'].append(fa_line)
+                        scheme.scene.addItem(fa_line)
+
+    def user_log_in(self, wrong_login_pass=False):
+        dialog = DialogLogIn(wrong_login_pass=wrong_login_pass, parent=self)
+        dialog.exec()
+        result, login, password = dialog.result(), dialog.line_edit_login.text(), dialog.line_edit_password.text()
+        if result == 1:
+            if login == 'admin' and password == 'admin':
+                self.user = login
+                self.set_gui_enter_offline()
+                self.set_gui_enter_exit_online(True)
+            else:
+                self.user_log_in(wrong_login_pass=True)
+        elif result == 0:
+            self.set_gui_enter_offline()
+        elif result == 2:
+            ...
+            # print('Регистрация')
+
+    def user_log_out(self):
+        if self.user and self.playbook:
+            dialog_save_current_playbook_online = QMessageBox(QMessageBox.Question, 'Сохранение', 'Сохранить текущий плейбук на сервере?', parent=self)
+            dialog_save_current_playbook_online.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
+            dialog_save_current_playbook_online.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
+            dialog_save_current_playbook_online.exec()
+            if not dialog_save_current_playbook_online.result():
+                ...
+                # print('СОХРАНЕНИЕ НА СЕРВЕРЕ')
+        self.user = None
+        self.set_gui_enter_exit_online(False)
+
+    def sign_up(self):
+        dialog = DialogSignUp(parent=self)
+        dialog.exec()
+
+    def new_playbook(self):
+        def new_playbook_dialog():
+            dialog = DialogNewPlaybook(parent=self)
+            dialog.exec()
+            playbook_name = dialog.line_edit.text().strip()
+            playbook_type = PlaybookType.football if dialog.radio_button_football.isChecked() else PlaybookType.flag
+            if dialog.result() == 1 and len(playbook_name) > 0:
+                self.create_playbook(playbook_name, playbook_type)
+
+        if self.playbook:
+            if self.user:
+                question_dialog_new_playbook_online = QMessageBox(QMessageBox.Question, 'Сохранение', 'Сохранить текущий плейбук на сервере?', parent=self)
+                question_dialog_new_playbook_online.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
+                question_dialog_new_playbook_online.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
+                question_dialog_new_playbook_online.exec()
+                if not question_dialog_new_playbook_online.result():
+                    ...
+                    # print('СОХРАНЕНИЕ НА СЕРВЕРЕ')
+            question_dialog_save_current_playbook = QMessageBox(QMessageBox.Question, 'Сохранение', 'Сохранить текущий плейбук на компьютере?', parent=self)
+            question_dialog_save_current_playbook.addButton("Да", QMessageBox.AcceptRole)  # результат устанавливается в 0
+            question_dialog_save_current_playbook.addButton("Нет", QMessageBox.RejectRole)  # результат устанавливается в 1
+            question_dialog_save_current_playbook.exec()
+            if not question_dialog_save_current_playbook.result():
+                self.save_current_playbook_offline()
+            if self.current_scene:
+                temp_scene = QGraphicsScene(parent=self)
+                # Устанавливается новая сцена и затем удаляется, что бы сразу после нажатия на кнопку диалогового окна, сцена очистилась
+                self.graphics_view.setScene(temp_scene)
+                temp_scene.deleteLater()
+                del temp_scene
+                self.current_scene.deleteLater()
+                self.current_scene = None
+            self.playbook = None
+            self.playbook_orm = None
+            self.chosen_scheme = None
+            self.listWidget_schemes.clear()
+            self.label_playbook_name.setText('')
+            self.enable_disable_gui(False)
+            new_playbook_dialog()
+        else:
+            new_playbook_dialog()
+
+    def create_playbook(self, playbook_name: str, playbook_type: 'PlaybookType', playbook_id_pk: int = None, team_id_fk: int = None):
+        self.playbook = Playbook(playbook_name, playbook_type, playbook_id_pk, team_id_fk)
+        self.set_gui_for_playbook()
+        self.label_playbook_name.setText(playbook_name)
+
     # @timeit###################################################################################################
     def save_all_schemes_on_picture(self, checked=None):
-        dialog = QFileDialog(parent=self, caption='Укажите путь для сохранения схем')
-        url = dialog.getExistingDirectory()
+        url = QFileDialog.getExistingDirectory(parent=self, caption='Укажите путь для сохранения схем')
         files_with_same_name_list = []
         if url:
-            for item_number in range(self.listWidget_schemes_football.count()):
+            for item_number in range(self.listWidget_schemes.count()):
                 url_files_list = list(map(str.lower, QDir(url).entryList(QDir.Files)))
-                item = self.listWidget_schemes_football.item(item_number)
-                if f'{item.text().lower()}.png' in url_files_list:
-                    files_with_same_name_list.append(item.text())
-                scheme_top_point, scheme_bot_point = self.get_top_bot_points_for_items_on_scene(item.scene)
-                if scheme_top_point is not None and item.text() not in files_with_same_name_list:
-                    scheme_top_point -= 30  # Отступ от крёв схемы
-                    scheme_bot_point += 30  # Отступ от крёв схемы
-                    if scheme_top_point < 0:  # Ограничение изображения размерами сцены
-                        scheme_top_point = 0
-                    if scheme_bot_point > self.field_data.football_field_length:  # Ограничение изображения размерами сцены
-                        scheme_bot_point = self.field_data.football_field_length
-                    rect = QRectF(0, scheme_top_point, item.scene.width(), scheme_bot_point - scheme_top_point)
-                    image = QImage(int(rect.width()), int(rect.height()), QImage.Format_ARGB8565_Premultiplied)
-                    image.fill(QColor(Qt.white))
-                    painter = QPainter(image)
-                    painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
-                    item.scene.render(painter, source=rect)
-                    image.save(f'{url}/{item.text()}.png')
-                    painter.end()
-
-            for item_number in range(self.listWidget_schemes_flag.count()):
-                url_files_list = list(map(str.lower, QDir(url).entryList(QDir.Files)))
-                item = self.listWidget_schemes_flag.item(item_number)
-                if f'{item.text().lower()}.png' in url_files_list:
-                    files_with_same_name_list.append(item.text())
-                scheme_top_point, scheme_bot_point = self.get_top_bot_points_for_items_on_scene(item.scene)
-                if scheme_top_point is not None and item.text() not in files_with_same_name_list:
-                    scheme_top_point -= 30  # Отступ от крёв схемы
-                    scheme_bot_point += 30  # Отступ от крёв схемы
-                    if scheme_top_point < 0:  # Ограничение изображения размерами сцены
-                        scheme_top_point = 0
-                    if scheme_bot_point > self.field_data.flag_field_length:  # Ограничение изображения размерами сцены
-                        scheme_bot_point = self.field_data.flag_field_length
-                    rect = QRectF(0, scheme_top_point, item.scene.width(), scheme_bot_point - scheme_top_point)
-                    image = QImage(int(rect.width()), int(rect.height()), QImage.Format_ARGB8565_Premultiplied)
-                    image.fill(QColor(Qt.white))
-                    painter = QPainter(image)
-                    painter.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
-                    item.scene.render(painter, source=rect)
-                    image.save(f'{url}/{item.text()}.png')
-                    painter.end()
+                scheme = self.listWidget_schemes.item(item_number)
+                if f'{scheme.text().lower()}.png' in url_files_list:
+                    files_with_same_name_list.append(scheme.text())
+                    continue
+                scheme_top_point, scheme_bot_point = self.get_top_bot_points_for_items_on_scene(scheme.scene)
+                if not scheme_top_point is None and scheme.text() not in files_with_same_name_list:
+                    rect = QRectF(0, scheme_top_point, scheme.scene.width(), scheme_bot_point - scheme_top_point)
+                    self.render_picture(f'{url}/{scheme.text()}.png', scheme.scene, rect)
             if files_with_same_name_list:
                 if len(files_with_same_name_list) == 1:
                     message = f'Схема с названием: {f", ".join(files_with_same_name_list)} не была сохранена из-за совпадения с именами файлов в выбранной папке. Для сохранения измените её название.'
                 else:
                     message = f'Схемы с названиями: {f", ".join(files_with_same_name_list)} не были сохранены из-за совпадения с именами файлов в выбранной папке. Для сохранения измените их названия.'
-                dialog = QMessageBox().about(self, 'Совпадение названий схем', message)
+                dialog = QMessageBox().information(self, 'Совпадение названий схем', message)
 
-    def get_top_bot_points_for_items_on_scene(self, scene: Field) -> tuple[None, None] | tuple[float, float]:###### Проверить ещё раз условие для низа итема
+    def get_top_bot_points_for_items_on_scene(self, scene: 'Field') -> tuple[float | None, float | None]:
         if scene.first_team_placed:
             top_y = scene.first_team_players[0].y()
             bot_y = scene.first_team_players[0].y() + scene.first_team_players[0].height
-        elif len(scene.figures) != 0:
-            top_y = scene.figures[0].rect().y()
-            bot_y = scene.figures[0].rect().bottom()
+        elif len(scene.rectangles) != 0:
+            top_y = scene.rectangles[0].y()
+            bot_y = scene.rectangles[0].y() + scene.rectangles[0].rect().height()
+        elif len(scene.ellipses) != 0:
+            top_y = scene.ellipses[0].y()
+            bot_y = scene.ellipses[0].y() + scene.ellipses[0].rect().height()
         elif len(scene.labels) != 0:
             top_y = scene.labels[0].y
             bot_y = scene.labels[0].y + scene.labels[0].height
@@ -526,118 +688,120 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             if line.line().y2() > bot_y:
                 bot_y = line.line().y2()
 
-        for figure in scene.figures:
+        for figure in scene.rectangles:
             if figure.y() < top_y:
                 top_y = figure.y()
-            if figure.y() + figure.height() > bot_y:
-                bot_y = figure.y() + figure.height()
+            if figure.y() + figure.rect().height() > bot_y:
+                bot_y = figure.y() + figure.rect().height()
+
+        for figure in scene.ellipses:
+            if figure.y() < top_y:
+                top_y = figure.y()
+            if figure.y() + figure.rect().height() > bot_y:
+                bot_y = figure.y() + figure.rect().height()
 
         for label in scene.labels:
-            if label.y < top_y:
-                top_y = label.y
-            if label.y + label.height > bot_y:
-                bot_y = label.y + label.height
+            if label.y() < top_y:
+                top_y = label.y()
+            if label.y() + label.rect().height() > bot_y:
+                bot_y = label.y() + label.rect().height()
+        top_y -= 30  # Отступ от верхней коардинаты итемов сцены
+        bot_y += 30  # Отступ от нижней коардинаты итемов сцены
+        top_y = 0 if top_y < 0 else top_y  # Ограничение верхней точки сохраняемой области, верхней границей сцены
+        bot_y = scene.current_field_border[1] if bot_y > scene.current_field_border[1] else bot_y
+        # Ограничение нижней точки сохраняемой области, нижней границей сцены
         return top_y, bot_y
 
     '''-----------------------------------------------------------------------------------------------------------------
-    --------------------------------------------Общие для полей методы--------------------------------------------------
+    ------------------------------------------Общие для плейбуков методы------------------------------------------------
     -----------------------------------------------------------------------------------------------------------------'''
-    def connect_signals_to_current_scene(self):
-        self.pushButton_delete_actions.clicked.connect(self.delete_all_players_actions)
-        self.pushButton_delete_figures.clicked.connect(self.current_scene.delete_figures)
-        self.pushButton_delete_labels.clicked.connect(self.current_scene.delete_labels)
-        self.pushButton_delete_pencil.clicked.connect(self.current_scene.delete_pencil)
-        self.current_scene.modeChanged.connect(lambda mode: getattr(self, f'pushButton_{mode.name}').setChecked(True))
-        self.current_scene.labelDoubleClicked.connect(self.update_window_font_config)
-        self.current_scene.labelEditingFinished.connect(self.label_editing_finished)
+    def connect_signals_from_scene(self, scene: 'Field'):
+        scene.modeChanged.connect(lambda mode: getattr(self, f'pushButton_{mode.name}').setChecked(True))
+        scene.labelDoubleClicked.connect(self.set_gui_config_from_label)
+        scene.labelEditingFinished.connect(self.set_gui_config_from_scene)
 
-    # def create_new_playbook(self):
-
-    def save_on_picture(self):
+    def save_current_scheme_on_picture(self, scene: 'Field'):
         save_window = QFileDialog(parent=self)
-        save_window.setDefaultSuffix('.jpg')
         save_window.setOption(QFileDialog.Option.DontConfirmOverwrite, False)
         filters = 'JPEG (*.jpg *.jpeg *.jpe *.jfif);; TIFF (*.tif *.tiff);; PNG (*.png)'
-        url, _ = save_window.getSaveFileName(self, 'Сохранить', filter=filters, selectedFilter='PNG (*.png)')
+        url, _ = save_window.getSaveFileName(self, 'Сохранить как изображение', filter=filters, selectedFilter='PNG (*.png)')
         if url:
             poly = self.graphics_view.mapToScene(QRect(0, 0, self.graphics_view.width() - 14, self.graphics_view.height() - 13))
             rect = poly.boundingRect()
             if rect.x() < 0:
                 rect.setWidth(rect.width() + rect.x())
-                rect.setX(- self.current_scene.field_data.border_width / 2)
+                rect.setX(- scene.field_data.border_width / 2)
             if rect.y() <= 0:
                 rect.setHeight(rect.height() + rect.y())
-                rect.setY(- self.current_scene.field_data.border_width / 2)
-            img = QImage(int(rect.width()), int(rect.height()), QImage.Format_ARGB8565_Premultiplied)
-            img.fill(QColor(Qt.white))
-            painter = QPainter(img)
-            painter.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform | QPainter.VerticalSubpixelPositioning | QPainter.LosslessImageRendering)
-            self.current_scene.render(painter, source=rect)
-            img.save(f'{url}')
-            painter.end()
+                rect.setY(- scene.field_data.border_width / 2)
+            self.render_picture(url, scene, rect)
 
-    def combobox_font_changed(self, font: QFont):
-        if self.current_scene.current_label is not None:
-            self.current_scene.current_label.font.setFamily(font.family())
-            self.current_scene.current_label.setFont(self.current_scene.current_label.font)
-            self.fontComboBox.clearFocus()
-            self.current_scene.setFocusItem(self.current_scene.current_label.proxy)
-            self.current_scene.current_label.grabKeyboard()
+    def render_picture(self, url: str, rendering_scene: 'Field', rendering_area: 'QRectF'):
+        base_width = 1000
+        img = QImage(base_width, base_width * rendering_area.height() / rendering_area.width(), QImage.Format_ARGB8565_Premultiplied)
+        img.fill(QColor(Qt.white))
+        painter = QPainter(img)
+        painter.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform | QPainter.VerticalSubpixelPositioning | QPainter.LosslessImageRendering)
+        rendering_scene.render(painter, source=rendering_area)
+        img.save(f'{url}')
+        painter.end()
+
+    def combobox_font_changed(self, scene: 'Field', font: 'QFont'):
+        if scene.current_label:
+            current_label_font = scene.current_label.font()
+            current_label_font.setFamily(font.family())
+            scene.current_label.setFont(current_label_font)
+            scene.current_label.update_height()
         else:
-            self.current_scene.set_config('font_type', font)
+            scene.set_config('font_type', font)
 
-    def font_size_changed(self, font_size: str):
-        if self.current_scene.current_label:
-            self.current_scene.current_label.font.setPointSize(int(font_size))
-            self.current_scene.current_label.setFont(self.current_scene.current_label.font)
-            self.comboBox_font_size.clearFocus()
-            self.current_scene.setFocusItem(self.current_scene.current_label.proxy)
-            self.current_scene.current_label.grabKeyboard()
+    def font_size_changed(self, scene: 'Field', font_size: str):
+        if scene.current_label:
+            current_label_font = scene.current_label.font()
+            current_label_font.setPointSize(int(font_size))
+            scene.current_label.setFont(current_label_font)
+            scene.current_label.update_height()
         else:
-            self.current_scene.set_config('font_size', int(font_size))
+            scene.set_config('font_size', int(font_size))
 
-    def bold_changed(self, bold_condition: bool):
-        if self.current_scene.current_label:
-            self.current_scene.current_label.font.setBold(bold_condition)
-            self.current_scene.current_label.setFont(self.current_scene.current_label.font)
-            self.pushButton_bold.clearFocus()
-            self.current_scene.setFocusItem(self.current_scene.current_label.proxy)
-            self.current_scene.current_label.grabKeyboard()
+    def bold_changed(self, scene: 'Field', bold_condition: bool):
+        if scene.current_label:
+            current_label_font = scene.current_label.font()
+            current_label_font.setBold(bold_condition)
+            scene.current_label.setFont(current_label_font)
+            scene.current_label.update_height()
         else:
-            self.current_scene.set_config('bold', bold_condition)
+            scene.set_config('bold', bold_condition)
 
-    def italic_changed(self, italic_condition: bool):
-        if self.current_scene.current_label:
-            self.current_scene.current_label.font.setItalic(italic_condition)
-            self.current_scene.current_label.setFont(self.current_scene.current_label.font)
-            self.pushButton_italic.clearFocus()
-            self.current_scene.setFocusItem(self.current_scene.current_label.proxy)
-            self.current_scene.current_label.grabKeyboard()
+    def italic_changed(self, scene: 'Field', italic_condition: bool):
+        if scene.current_label:
+            current_label_font = scene.current_label.font()
+            current_label_font.setItalic(italic_condition)
+            scene.current_label.setFont(current_label_font)
+            scene.current_label.update_height()
         else:
-            self.current_scene.set_config('italic', italic_condition)
+            scene.set_config('italic', italic_condition)
 
-    def underline_changed(self, underline_condition: bool):
-        if self.current_scene.current_label:
-            self.current_scene.current_label.font.setUnderline(underline_condition)
-            self.current_scene.current_label.setFont(self.current_scene.current_label.font)
-            self.pushButton_underline.clearFocus()
-            self.current_scene.setFocusItem(self.current_scene.current_label.proxy)
-            self.current_scene.current_label.grabKeyboard()
+    def underline_changed(self, scene: 'Field', underline_condition: bool):
+        if scene.current_label:
+            current_label_font = scene.current_label.font()
+            current_label_font.setUnderline(underline_condition)
+            scene.current_label.setFont(current_label_font)
+            scene.current_label.update_height()
         else:
-            self.current_scene.set_config('underline', underline_condition)
+            scene.set_config('underline', underline_condition)
 
-    def color_changed(self, color: str):
-        if self.current_scene.current_label:
-            self.current_scene.current_label.color = color
-            self.current_scene.current_label.setStyleSheet(f'''background-color: transparent;\n
-                                                             Border:0px dashed black;\n
-                                                             color:{self.current_scene.current_label.color};\n''')
-            self.current_scene.setFocusItem(self.current_scene.current_label.proxy)
-            self.current_scene.current_label.grabKeyboard()
+    def color_changed(self, scene: 'Field', color: str):
+        if scene.current_label:
+            text_cursor = scene.current_label.textCursor()
+            scene.current_label.selectAll()
+            scene.current_label.setTextColor(color)
+            scene.current_label.setTextCursor(text_cursor)
+            scene.current_label.update_height()
         else:
-            self.current_scene.set_config('color', color)
+            scene.set_config('color', color)
 
-    def label_editing_finished(self):
+    def set_gui_config_from_scene(self):
         self.fontComboBox.setCurrentFont(self.current_scene.config['font_type'])
         self.comboBox_font_size.setCurrentText(str(self.current_scene.config['font_size']))
         self.pushButton_bold.setChecked(self.current_scene.config['bold'])
@@ -645,89 +809,19 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         self.pushButton_underline.setChecked(self.current_scene.config['underline'])
         self.pushButton_current_color.setStyleSheet(f'background-color: {self.current_scene.config["color"]};')
 
-    def update_window_font_config(self):
-        self.fontComboBox.setCurrentFont(self.current_scene.current_label.font)
-        self.comboBox_font_size.setCurrentText(str(self.current_scene.current_label.font.pointSize()))
-        self.pushButton_bold.setChecked(self.current_scene.current_label.font.bold())
-        self.pushButton_italic.setChecked(self.current_scene.current_label.font.italic())
-        self.pushButton_underline.setChecked(self.current_scene.current_label.font.underline())
-        self.pushButton_current_color.setStyleSheet(f'background-color: {self.current_scene.current_label.color};')
-
-    def delete_first_team_actions(self):
-        if self.current_scene.first_team_placed:
-            for player in self.current_scene.first_team_players:
-                player.delete_actions()
-        if self.current_scene.additional_offence_player:
-            self.current_scene.additional_offence_player.delete_actions()
-
-    def delete_second_team_actions(self):
-        if self.current_scene.second_team_placed:
-            for player in self.current_scene.second_team_players:
-                player.delete_actions()
-
-    def delete_all_players_actions(self):
-        self.delete_first_team_actions()
-        self.delete_second_team_actions()
-        if self.current_scene.allow_painting:
-            self.delete_drawing_actions()
-        self.current_scene.update()
-
-    def delete_drawing_actions(self):
-        self.current_scene.current_player.setSelected(False)
-        self.current_scene.current_player.hover = False
-        self.current_scene.allow_painting = False
-        self.current_scene.painting = False
-        self.current_scene.mouse_pressed_painting = False
-        self.current_scene.current_player = None
-        self.current_scene.player_center_pos = None
-        self.current_scene.start_pos = None
-        self.current_scene.last_start_pos = None
-        self.current_scene.removeItem(self.current_scene.current_line)
-        self.current_scene.current_line = None
-        for line in self.current_scene.current_action_lines:
-            self.current_scene.removeItem(line)
-        self.current_scene.current_action_lines.clear()
-        self.current_scene.action_number_temp = None
+    def set_gui_config_from_label(self):
+        self.fontComboBox.setCurrentFont(self.current_scene.current_label.font())
+        self.comboBox_font_size.setCurrentText(str(self.current_scene.current_label.font().pointSize()))
+        self.pushButton_bold.setChecked(self.current_scene.current_label.font().bold())
+        self.pushButton_italic.setChecked(self.current_scene.current_label.font().italic())
+        self.pushButton_underline.setChecked(self.current_scene.current_label.font().underline())
+        self.pushButton_current_color.setStyleSheet(f'background-color: {self.current_scene.current_label.textColor().name()};')
 
     # ТУТ БЫЛ МЕТОД enable_disable_gui
 
     '''-----------------------------------------------------------------------------------------------------------------
-    ----------------------------------------------Методы футбольного поля-----------------------------------------------
+    --------------------------------------------Методы футбольного плейбука---------------------------------------------
     -----------------------------------------------------------------------------------------------------------------'''
-    def add_new_scheme(self):
-        if self.listWidget_schemes.count() == 0:
-            self.enable_disable_gui(True)
-        item = CustomListItem(Field(self, self.field_data, self.playbook.type, parent=self.graphics_view), '')
-        self.playbook.add_scheme(item)
-        self.listWidget_schemes.addItem(item)
-        self.listWidget_schemes.setCurrentItem(item)
-        self.edit_current_scheme()
-        self.choose_current_scheme()
-        self.connect_signals_to_current_scene()
-
-    def delete_current_scheme(self):
-        item = self.listWidget_schemes.takeItem(self.listWidget_schemes.currentRow())
-        if self.listWidget_schemes.count() > 0:
-            if item is self.chosen_list_item:
-            # if item is self.listWidget_schemes_football.selectedItems()[0]:
-                self.chosen_list_item = None
-            self.choose_current_scheme()
-        else:
-            if self.current_scene:
-                self.current_scene.deleteLater()
-                self.current_scene = None
-            self.chosen_list_item = None
-            # self.set_gui_for_current_scene_football()
-            self.enable_disable_gui(False)
-        self.playbook.remove_scheme(item)
-        del item
-
-    def edit_current_scheme(self):
-        item = self.listWidget_schemes.currentItem()
-        item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable)
-        self.listWidget_schemes.editItem(item)
-        item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-
     def edit_playbook_name(self):
         dialog = QInputDialog(parent=self)
         dialog.setOkButtonText('ОК')
@@ -737,28 +831,78 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             self.playbook.name = text.strip()
             self.label_playbook_name.setText(text.strip())
 
+    def add_new_scheme(self):
+        if self.listWidget_schemes.count() == 0:
+            self.enable_disable_gui(True)
+        scheme = self.create_scheme('')
+        self.listWidget_schemes.setCurrentItem(scheme)
+        self.choose_current_scheme()
+        self.edit_current_scheme()
+
+    def create_scheme(self, scheme_name: str, view_point_x: float | None = None, view_point_y: float | None = None,
+                      first_team_placed: Union['TeamType', None] = None, second_team_placed: Union['TeamType', None] = None,
+                      first_team_position: int | None = None, scheme_id_pk: int = None, playbook_id_fk: int = None):
+        scheme = Scheme(self, self.playbook.type, scheme_name, view_point_x, view_point_y,
+                        first_team_placed, second_team_placed, first_team_position,
+                        scheme_id_pk, playbook_id_fk)
+        self.playbook.add_scheme(scheme)
+        self.listWidget_schemes.addItem(scheme)
+        self.connect_signals_from_scene(scheme.scene)
+        return scheme
+
+    def delete_current_scheme(self):
+        scheme = self.listWidget_schemes.takeItem(self.listWidget_schemes.currentRow())
+        if self.listWidget_schemes.count() > 0:
+            if scheme is self.chosen_scheme:
+                self.chosen_scheme = None
+                self.current_scene = None
+                self.choose_current_scheme()
+        else:
+            if self.current_scene:
+                self.current_scene.deleteLater()
+                self.current_scene = None
+            self.chosen_scheme = None
+            self.enable_disable_gui(False)
+            if self.playbook:
+                self.set_gui_for_playbook()
+        if scheme.scheme_id_pk:
+            scheme.is_deleted = True
+        else:
+            self.playbook.remove_scheme(scheme)
+            del scheme
+
+    def edit_current_scheme(self):
+        scheme = self.listWidget_schemes.currentItem()
+        scheme.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable)
+        self.listWidget_schemes.editItem(scheme)
+        scheme.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+
     def choose_current_scheme(self):
         if self.listWidget_schemes.count() != 0:
-            if self.current_scene:  # Запоминание точки обзора текущей сцены и зума, при смене на другую сцену
-                self.current_scene.view_point = self.graphics_view.mapToScene(QPoint(self.graphics_view.width() // 2, self.graphics_view.height() // 2))
-                self.current_scene.zoom = self.graphics_view.current_zoom
-            for item_number in range(self.listWidget_schemes.count()):
-                item = self.listWidget_schemes.item(item_number)
-                if self.current_theme == AppTheme.dark:
-                    item.setForeground(QColor('#b1b1b1'))
-                elif self.current_theme == AppTheme.light:
-                    item.setForeground(QColor(Qt.black))
-            self.chosen_list_item = self.listWidget_schemes.currentItem()
-            if self.current_theme == AppTheme.dark:
-                self.chosen_list_item.setForeground(QColor('#27c727'))
-            elif self.current_theme == AppTheme.light:
-                self.chosen_list_item.setForeground(QColor('#1a6aa7'))
-            self.chosen_list_item.setSelected(True)
-            self.current_scene = self.chosen_list_item.scene
+            self.chosen_scheme = self.listWidget_schemes.currentItem()
+            self.current_scene = self.chosen_scheme.scene
             self.graphics_view.setScene(self.current_scene)
             self.graphics_view.set_current_zoom(self.current_scene.zoom)
             self.graphics_view.centerOn(self.current_scene.view_point)
-            self.set_gui_for_current_scene_football()
+            self.set_check_boxes_for_schemes()
+            self.set_gui_for_current_scene()
+
+    def set_check_boxes_for_schemes(self):
+        for scheme_number in range(self.listWidget_schemes.count()):
+            scheme = self.listWidget_schemes.item(scheme_number)
+            if self.current_theme == AppTheme.dark:
+                scheme.setIcon(QIcon(QPixmap('://Themes/Dark_theme/CheckBox-0(dark_theme).png')))
+                scheme.setForeground(QColor('#b1b1b1'))
+            elif self.current_theme == AppTheme.light:
+                scheme.setIcon(QIcon(QPixmap('://Themes/Light_theme/CheckBox-0(light_theme).png')))
+                scheme.setForeground(QColor(Qt.black))
+        if self.chosen_scheme:
+            if self.current_theme == AppTheme.dark:
+                self.chosen_scheme.setIcon(QIcon(QPixmap('://Themes/Dark_theme/CheckBox-1(dark_theme).png')))
+                self.chosen_scheme.setForeground(QColor('#27c727'))
+            elif self.current_theme == AppTheme.light:
+                self.chosen_scheme.setIcon(QIcon(QPixmap('://Themes/Light_theme/CheckBox-1(light_theme).png')))
+                self.chosen_scheme.setForeground(QColor('#1a6aa7'))
 
     def move_up_current_scheme(self):
         row = self.listWidget_schemes.currentRow()
@@ -776,17 +920,6 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             self.listWidget_schemes.insertItem(row, item)
             self.listWidget_schemes.setCurrentItem(item)
 
-    # def team_type_changed_football(self):
-    #     if self.comboBox_team_type_football.currentIndex() == 1:
-    #         self.lineEdit_yards_football.setEnabled(False)
-    #         self.lineEdit_yards_football.setText(str(65))
-    #     else:
-    #         self.lineEdit_yards_football.setEnabled(True)
-
-    def get_yards_to_end_zone_football(self):
-        yards = self.field_data.football_ten_yard + self.field_data.football_one_yard * int(self.lineEdit_yards.text())
-        return yards
-
     def check_max_yards_football(self, value: str):
         try:
             if int(value) > 100:
@@ -800,184 +933,58 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
             self.lineEdit_yards.setText('50')
         self.check_max_yards_football(value)
         if self.comboBox_team_type.currentIndex() == 1:  # Кикофф пробивается либо с 75 ярдов, либо с 65
-            if int(value) >= 70:
-                self.lineEdit_yards.setText('75')
-            else:
-                self.lineEdit_yards.setText('65')
+            self.lineEdit_yards.setText('75') if int(value) >= 70 else self.lineEdit_yards.setText('65')
         elif self.comboBox_team_type.currentIndex() == 2:  # Пант нет смысла пробивать если до зачётной зоны меньше 20 ярдов
             if int(value) <= 20:
                 self.lineEdit_yards.setText('20')
-        elif self.comboBox_team_type.currentIndex() == 3:
-            pass
 
-    def place_first_team_football(self):
+    def place_first_team_football(self, scene: 'Field'):
         self.validate_yards_football(self.lineEdit_yards.text())
-        if not self.current_scene.first_team_placed:
-            if self.comboBox_team_type.currentIndex() == 0:
-                self.create_first_team_players_football(self.players_data.offence_football)
-                self.current_scene.first_team_placed = TeamType.offence
-                self.current_scene.first_team_position = int(self.lineEdit_yards.text())
-                self.set_gui_first_team_placed()
-            elif self.comboBox_team_type.currentIndex() == 1:
-                self.create_first_team_players_football(self.players_data.kickoff_football)
-                self.current_scene.first_team_placed = TeamType.kickoff
-                self.current_scene.first_team_position = int(self.lineEdit_yards.text())
-                self.set_gui_first_team_placed()
-            elif self.comboBox_team_type.currentIndex() == 2:
-                # if int(self.lineEdit_yards_football.text()) >= 20:
-                self.create_first_team_players_football(self.players_data.punt_football)
-                self.current_scene.first_team_placed = TeamType.punt_kick
-                self.current_scene.first_team_position = int(self.lineEdit_yards.text())
-                self.set_gui_first_team_placed()
-                # else:
-                #     self.lineEdit_yards_football.setText('20')
-            elif self.comboBox_team_type.currentIndex() == 3:
-                # if int(self.lineEdit_yards_football.text()) <= 70:
-                self.create_first_team_players_football(self.players_data.field_goal_off_football)
-                self.current_scene.first_team_placed = TeamType.field_goal_off
-                self.current_scene.first_team_position = int(self.lineEdit_yards.text())
-                self.set_gui_first_team_placed()
-                # else:
-                #     self.lineEdit_yards_football.setText('70')
+        if scene and not scene.first_team_placed:
+            team_type = TeamType(self.comboBox_team_type.currentIndex())
+            scene.create_first_team_players_football(team_type, int(self.lineEdit_yards.text()))
+            scene.first_team_placed = team_type
+            scene.first_team_position = int(self.lineEdit_yards.text())
+            self.set_gui_first_team_placed()
 
-    def create_first_team_players_football(self, players: tuple | list):
-        for i, player in enumerate(players):
-            team, position, text_color, fill_color, fill_type, x, y = player
-            if i == 10 and team == TeamType.punt_kick and int(self.lineEdit_yards.text()) >= 95:
-                item = FirstTeamPlayer(team, position, text_color, fill_color, fill_type, x,
-                                       119 * self.current_scene.field_data.football_one_yard - self.players_data.player_size / 2)
-            else:
-                item = FirstTeamPlayer(team, position, text_color, fill_color, fill_type, x,
-                                       y + self.get_yards_to_end_zone_football())
-            self.current_scene.addItem(item)
-            self.current_scene.first_team_players.append(item)
-
-    def place_second_team_football(self):
-        if not self.current_scene.second_team_placed:
-            if self.current_scene.first_team_placed == TeamType.offence:
-                self.create_second_team_football(self.players_data.defence_football)
-                self.current_scene.second_team_placed = TeamType.defence
-            elif self.current_scene.first_team_placed == TeamType.kickoff:
-                self.create_second_team_football(self.players_data.kickoff_return)
-                self.current_scene.second_team_placed = TeamType.kick_ret
-            elif self.current_scene.first_team_placed == TeamType.punt_kick:
-                self.create_second_team_football(self.players_data.punt_return)
-                self.current_scene.second_team_placed = TeamType.punt_ret
-            elif self.current_scene.first_team_placed == TeamType.field_goal_off:
-                self.create_second_team_football(self.players_data.field_goal_def)
-                self.current_scene.second_team_placed = TeamType.field_goal_def
+    def place_second_team_football(self, scene: 'Field'):
+        if scene and scene.first_team_placed and not scene.second_team_placed:
+            team_type = TeamType(scene.first_team_placed.value + 4)  # В TeamType нумерация типов второй команды начинается с 4 и соотвествует типам первой команды
+            scene.create_second_team_football(team_type, int(self.lineEdit_yards.text()))
+            scene.second_team_placed = team_type
             self.set_gui_for_second_team(True)
 
-    def create_second_team_football(self, players: tuple | list):
-        for i, player in enumerate(players):
-            team, position, text_color, border_color, symbol, x, y = player
-            if (team == TeamType.punt_ret and i == 10) or (team == TeamType.kick_ret and i == 10):  # punt_returner and kick_returner
-                item = SecondTeamPlayer(team, position, text_color, border_color, symbol, x, y)
-            elif team == TeamType.field_goal_def and i == 10 and int(self.lineEdit_yards.text()) > 20:  # kick returner
-                item = SecondTeamPlayer(team, position, text_color, border_color, symbol, x,
-                                        self.current_scene.field_data.football_five_yard)
-            elif team == TeamType.defence and i == 10 and int(self.lineEdit_yards.text()) < 3:  # free safety
-                item = SecondTeamPlayer(team, position, text_color, border_color, symbol, x,
-                                        y + self.get_yards_to_end_zone_football() + 3 * self.current_scene.field_data.football_one_yard)
-            elif team == TeamType.kick_ret and 4 < i <= 7 and int(self.lineEdit_yards.text()) == 75:  # second line
-                item = SecondTeamPlayer(team, position, text_color, border_color, symbol, x,
-                                        y + self.get_yards_to_end_zone_football() - self.field_data.football_five_yard)
-            elif team == TeamType.kick_ret and 7 < i <= 9 and int(self.lineEdit_yards.text()) == 75:  # third line
-                item = SecondTeamPlayer(team, position, text_color, border_color, symbol, x,
-                                        y + self.get_yards_to_end_zone_football() - self.field_data.football_ten_yard)
-            else:  # other players
-                item = SecondTeamPlayer(team, position, text_color, border_color, symbol, x,
-                                        y + self.get_yards_to_end_zone_football())
-            self.current_scene.addItem(item)
-            self.current_scene.second_team_players.append(item)
-
-    def place_additional_offence_player_football(self):
-        if self.current_scene.first_team_placed == TeamType.offence and not self.current_scene.additional_offence_player:
-            team, position, text_color, fill_color, fill_type, x, y = self.players_data.additional_player_football
-            self.current_scene.additional_offence_player = FirstTeamPlayer(team, position, text_color, fill_color, fill_type, x,
-                                                                           y + self.get_yards_to_end_zone_football())
-            self.current_scene.addItem(self.current_scene.additional_offence_player)
+    def place_additional_offence_player(self, scene: 'Field'):
+        if scene.first_team_placed == TeamType.offence and not scene.additional_offence_player:
+            scene.create_additional_offence_player(int(self.lineEdit_yards.text()))
+            # self.playbook.playbook_type.name = или football или flag
             self.set_gui_for_additional_offence_player(True)
 
-    def delete_second_team(self):
-        if self.current_scene.second_team_placed:
-            self.delete_second_team_actions()
-            group = self.current_scene.createItemGroup(self.current_scene.second_team_players)
-            self.current_scene.removeItem(group)
-            self.current_scene.second_team_players.clear()
-            self.current_scene.second_team_placed = None
+    def delete_second_team(self, scene: 'Field'):
+        if scene and scene.second_team_placed:
+            scene.delete_second_team_players()
             self.set_gui_for_second_team(False)
-            if self.current_scene.allow_painting and \
-                    (self.current_scene.current_player.team == TeamType.defence  # Используется для команды защиты в футболе и во флаге
-                     or self.current_scene.current_player.team == TeamType.punt_ret
-                     or self.current_scene.current_player.team == TeamType.kick_ret
-                     or self.current_scene.current_player.team == TeamType.field_goal_def):
-                self.delete_drawing_actions()
-            self.current_scene.update()
 
-    def delete_additional_offence_player(self):
-        if self.current_scene.additional_offence_player:
-            self.current_scene.additional_offence_player.delete_actions()
-            self.current_scene.removeItem(self.current_scene.additional_offence_player)
-            self.current_scene.additional_offence_player = None
+    def delete_additional_offence_player(self, scene: 'Field'):
+        if scene and scene.additional_offence_player:
+            scene.delete_additional_offence_player()
             self.set_gui_for_additional_offence_player(False)
-            if self.current_scene.allow_painting and self.current_scene.current_player.team == TeamType.offence_add:
-                self.delete_drawing_actions()
-            self.current_scene.update()
 
-    def clear_scene(self):
-        if self.current_scene.first_team_placed:
-            self.delete_first_team_actions()
-            group = self.current_scene.createItemGroup(self.current_scene.first_team_players)
-            self.current_scene.removeItem(group)
-            self.current_scene.first_team_players.clear()
-            self.current_scene.first_team_placed = None
-            self.current_scene.first_team_position = None
-            self.delete_additional_offence_player()
-        self.delete_second_team()
-        self.current_scene.delete_figures()
-        self.current_scene.delete_labels()
-        self.current_scene.delete_pencil()
-        self.set_gui_all_teams_deleted()
-        if self.current_scene.allow_painting:
-            self.delete_drawing_actions()
-        self.current_scene.update()
+    def delete_all_players(self, scene: 'Field'):
+        if scene and scene.first_team_placed:
+            scene.delete_all_players()
+            self.set_gui_all_teams_deleted()
 
-    def second_team_symbol_changed(self):
-        if self.comboBox_second_players_symbol.currentIndex() == 0:
-            for player in self.current_scene.second_team_players:
-                # player.set_symbol('letters')
-                player.symbol = SymbolType.letter
-                player.text_color = '#000000'
-                player.border_color = '#000000'
-        elif self.comboBox_second_players_symbol.currentIndex() == 1:
-            for player in self.current_scene.second_team_players:
-                # player.set_symbol('x')
-                player.symbol = SymbolType.cross
-                player.text_color = '#000000'
-                player.border_color = '#000000'
-        elif self.comboBox_second_players_symbol.currentIndex() == 2:
-            for player in self.current_scene.second_team_players:
-                # player.set_symbol('triangle_bot')
-                player.symbol = SymbolType.triangle_bot
-                player.text_color = '#000000'
-                player.border_color = '#000000'
-        elif self.comboBox_second_players_symbol.currentIndex() == 3:
-            for player in self.current_scene.second_team_players:
-                # player.set_symbol('triangle_top')
-                player.symbol = SymbolType.triangle_top
-                player.text_color = '#000000'
-                player.border_color = '#000000'
-
-    # ТУТ БЫЛИ МЕТОДЫ SET_GUI ДЛЯ ФУТБОЛА
+    def second_team_symbol_changed(self, scene: 'Field'):
+        symbol_type = SymbolType(self.comboBox_second_players_symbol.currentIndex())
+        for player in scene.second_team_players:
+            player.symbol_type = symbol_type
+            player.text_color = '#000000'
+            player.player_color = '#000000'
 
     '''-----------------------------------------------------------------------------------------------------------------
-    ---------------------------------------------Методы флаг-футбольного поля-------------------------------------------
+    -------------------------------------------Методы флаг-футбольного плейбука-----------------------------------------
     -----------------------------------------------------------------------------------------------------------------'''
-    def get_yards_to_end_zone_flag(self):
-        yards = self.field_data.flag_ten_yard + self.field_data.flag_one_yard * int(self.lineEdit_yards.text())
-        return yards
-
     def check_max_yards_flag(self, value: str):
         try:
             if int(value) > 50:
@@ -989,40 +996,19 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
         if not value.isdigit():
             self.lineEdit_yards.setText('25')
 
-    def place_first_team_flag(self):
+    def place_first_team_flag(self, scene: 'Field'):
         self.validate_yards_flag(self.lineEdit_yards.text())
-        if not self.current_scene.first_team_placed:
-            self.create_players_flag(self.players_data.offence_flag)
-            self.current_scene.first_team_placed = TeamType.offence
-            self.current_scene.first_team_position = int(self.lineEdit_yards.text())
+        if scene and not scene.first_team_placed:
+            scene.create_players_flag(TeamType.offence, int(self.lineEdit_yards.text()))
+            scene.first_team_placed = TeamType.offence
+            scene.first_team_position = int(self.lineEdit_yards.text())
             self. set_gui_first_team_placed()
 
-    def place_second_team_flag(self):
-        if not self.current_scene.second_team_placed:
-            self.create_players_flag(self.players_data.defence_flag)
-            self.current_scene.second_team_placed = True
+    def place_second_team_flag(self, scene: 'Field'):
+        if scene and scene.first_team_placed == TeamType.offence and not scene.second_team_placed:
+            scene.create_players_flag(TeamType.defence, int(self.lineEdit_yards.text()))
+            scene.second_team_placed = TeamType.defence
             self.set_gui_for_second_team(True)
-
-    def create_players_flag(self, players: tuple | list):
-        for i, player in enumerate(players):
-            team, position, text_color, fill_color, fill_type, x, y = player
-            if team == TeamType.offence:
-                item = FirstTeamPlayer(team, position, text_color, fill_color, fill_type, x,
-                                       y + self.get_yards_to_end_zone_flag())
-                self.current_scene.first_team_players.append(item)
-            else:
-                item = SecondTeamPlayer(team, position, text_color, fill_color, fill_type, x,
-                                        y + self.get_yards_to_end_zone_flag())
-                self.current_scene.second_team_players.append(item)
-            self.current_scene.addItem(item)
-
-    def place_additional_offence_player_flag(self):
-        if self.current_scene.first_team_placed == TeamType.offence and not self.current_scene.additional_offence_player:
-            team, position, text_color, fill_color, fill_type, x, y = self.players_data.additional_player_flag
-            self.current_scene.additional_offence_player = FirstTeamPlayer(team, position, text_color, fill_color, fill_type, x,
-                                                                           y + self.get_yards_to_end_zone_flag())
-            self.current_scene.addItem(self.current_scene.additional_offence_player)
-            self.set_gui_for_additional_offence_player(True)
 
     '''-----------------------------------------------------------------------------------------------------------------
     ------------------------------------Методы интерфейса напрямую не касающиеся полей----------------------------------
@@ -1038,103 +1024,99 @@ class PlayCreator(QMainWindow, Ui_MainWindow):
 
     def label_set_current_zoom(self, value: int):
         self.label_current_zoom.setText(f'Приближение: {value}%')
-        if self.current_scene:
-            self.current_scene.zoom = value
 
     def set_dark_theme(self):
         self.current_theme = AppTheme.dark
-        self.change_style('Interface/tactic(dark128).png', '#27c727')
-        self.setStyleSheet(open('Interface/Dark_theme/PlayCreator_dark_theme.css').read())
-        # self.setStyleSheet('')
-        for item_number in range(self.listWidget_schemes.count()):
-            item = self.listWidget_schemes.item(item_number)
-            item.setForeground(QColor('#b1b1b1'))
-        if self.chosen_list_item:
-            self.chosen_list_item.setForeground(QColor('#27c727'))
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Dark_theme/save(dark_theme).png'))
-        self.action_save_like_picture.setIcon(icon)
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Dark_theme/save_all(dark_theme).png'))
-        self.action_save_all_like_picture.setIcon(icon)
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Dark_theme/new_scheme(dark_theme).png'))
-        self.action_new_playbook.setIcon(icon)
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Dark_theme/presentation_mode(dark_theme).png'))
-        self.action_presentation_mode.setIcon(icon)
+        self.about_ico_path = '://Themes/Dark_theme/tactic(dark128).png'
+        # self.setStyleSheet(open('Interface/Dark_theme/PlayCreator_dark_theme.css').read())
+        style_file = QFile('://Themes/Dark_theme/PlayCreator_dark_theme.css')
+        style_file.open(QFile.ReadOnly | QFile.Text)
+        stream = QTextStream(style_file)
+        style = stream.readAll()
+        style_file.close()
+        self.setStyleSheet(str(style))
+        self.set_check_boxes_for_schemes()
+        self.action_new_playbook.setIcon(QIcon(QPixmap('://Themes/Dark_theme/new_playbook(dark_theme).png')))
+        self.action_open_playbook_offline.setIcon(QIcon(QPixmap('://Themes/Dark_theme/open(dark_theme).png')))
+        self.action_save_playbook_offline.setIcon(QIcon(QPixmap('://Themes/Dark_theme/save(dark_theme).png')))
+        self.action_save_playbook_offline_as.setIcon(QIcon(QPixmap('://Themes/Dark_theme/save_as(dark_theme).png')))
+        self.action_open_playbook_online.setIcon(QIcon(QPixmap('://Themes/Dark_theme/open_from_server(dark_theme).png')))
+        self.action_save_playbook_online.setIcon(QIcon(QPixmap('://Themes/Dark_theme/save_on_server(dark_theme).png')))
+        self.action_save_like_picture.setIcon(QIcon(QPixmap('://Themes/Dark_theme/save_like_picture(dark_theme).png')))
+        self.action_save_all_like_picture.setIcon(QIcon(QPixmap('://Themes/Dark_theme/save_all_like_picture(dark_theme).png')))
+        self.action_presentation_mode.setIcon(QIcon(QPixmap('://Themes/Dark_theme/presentation_mode(dark_theme).png')))
+        for mode in Modes:
+            getattr(self, f'pushButton_{mode.name}').setIcon(QIcon(QPixmap(f'://Themes/Dark_theme/{mode.name}(dark_theme).png')))
+        self.pushButton_delete_actions.setIcon(QIcon(QPixmap(f'://Themes/Dark_theme/delete_actions(dark_theme).png')))
+        self.pushButton_delete_figures.setIcon(QIcon(QPixmap(f'://Themes/Dark_theme/delete_figures(dark_theme).png')))
+        self.pushButton_delete_pencil.setIcon(QIcon(QPixmap(f'://Themes/Dark_theme/delete_pencil(dark_theme).png')))
+        self.pushButton_delete_labels.setIcon(QIcon(QPixmap(f'://Themes/Dark_theme/delete_labels(dark_theme).png')))
 
     def set_light_theme(self):
         self.current_theme = AppTheme.light
-        self.change_style('Interface/tactic(light128).png', '#1a6aa7')
-        self.setStyleSheet(open('Interface/Light_theme/PlayCreator_light_theme.css').read())
-        # self.setStyleSheet('')
-        for item_number in range(self.listWidget_schemes.count()):
-            item = self.listWidget_schemes.item(item_number)
-            item.setForeground(QColor(Qt.black))
-        if self.chosen_list_item:
-            self.chosen_list_item.setForeground(QColor('#1a6aa7'))
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Light_theme/save(light_theme).png'))
-        self.action_save_like_picture.setIcon(icon)
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Light_theme/save_all(light_theme).png'))
-        self.action_save_all_like_picture.setIcon(icon)
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Light_theme/new_scheme(light_theme).png'))
-        self.action_new_playbook.setIcon(icon)
-        icon = QIcon()
-        icon.addPixmap(QPixmap('Interface/Light_theme/presentation_mode(light_theme).png'))
-        self.action_presentation_mode.setIcon(icon)
-
-    def change_style(self, ico: str, color: str):
-        self.ico_about_path = ico
-        self.dialog_windows_text_color = color
+        self.about_ico_path = '://Themes/Light_theme/tactic(light128).png'
+        # self.setStyleSheet(open('Interface/Light_theme/PlayCreator_light_theme.css').read())
+        style_file = QFile('://Themes/Light_theme/PlayCreator_light_theme.css')
+        style_file.open(QFile.ReadOnly | QFile.Text)
+        stream = QTextStream(style_file)
+        style = stream.readAll()
+        style_file.close()
+        self.setStyleSheet(str(style))
+        self.set_check_boxes_for_schemes()
+        self.action_new_playbook.setIcon(QIcon(QPixmap('://Themes/Light_theme/new_playbook(light_theme).png')))
+        self.action_open_playbook_offline.setIcon(QIcon(QPixmap('://Themes/Light_theme/open(light_theme).png')))
+        self.action_save_playbook_offline.setIcon(QIcon(QPixmap('://Themes/Light_theme/save(light_theme).png')))
+        self.action_save_playbook_offline_as.setIcon(QIcon(QPixmap('://Themes/Light_theme/save_as(light_theme).png')))
+        self.action_open_playbook_online.setIcon(QIcon(QPixmap('://Themes/Light_theme/open_from_server(light_theme).png')))
+        self.action_save_playbook_online.setIcon(QIcon(QPixmap('://Themes/Light_theme/save_on_server(light_theme).png')))
+        self.action_save_like_picture.setIcon(QIcon(QPixmap('://Themes/Light_theme/save_like_picture(light_theme).png')))
+        self.action_save_all_like_picture.setIcon(QIcon(QPixmap('://Themes/Light_theme/save_all_like_picture(light_theme).png')))
+        self.action_presentation_mode.setIcon(QIcon(QPixmap('://Themes/Light_theme/presentation_mode(light_theme).png')))
+        for mode in Modes:
+            getattr(self, f'pushButton_{mode.name}').setIcon(QIcon(QPixmap(f'://Themes/Light_theme/{mode.name}(light_theme).png')))
+        self.pushButton_delete_actions.setIcon(QIcon(QPixmap(f'://Themes/Light_theme/delete_actions(light_theme).png')))
+        self.pushButton_delete_figures.setIcon(QIcon(QPixmap(f'://Themes/Light_theme/delete_figures(light_theme).png')))
+        self.pushButton_delete_pencil.setIcon(QIcon(QPixmap(f'://Themes/Light_theme/delete_pencil(light_theme).png')))
+        self.pushButton_delete_labels.setIcon(QIcon(QPixmap(f'://Themes/Light_theme/delete_labels(light_theme).png')))
 
     def about_clicked(self):
-        dialog = DialogAbout(self.version, self.ico_about_path, self.dialog_windows_text_color, parent=self)
+        dialog = DialogAbout(self.version, self.about_ico_path, parent=self)
         dialog.exec()
 
     def presentation_mode(self):
         self.groupBox_team_playbook_settings.setVisible(not self.action_presentation_mode.isChecked())
         self.label_current_zoom.setVisible(not self.action_presentation_mode.isChecked())
 
-    '''-----------------------------------------------------------------------------------------------------------------
-    ------------------------------------------------------Методы отладки------------------------------------------------
-    -----------------------------------------------------------------------------------------------------------------'''
-    def test_fn(self):
-        print('-' * 100)
-        print(f'МОД: {self.current_scene.mode}')
-        # print(f'ТЕКУЩИЙ ЛЭЙБЛ: {self.current_scene.current_label}')
-        # print(f'КОНФИГ: {self.current_scene.config}')
-        # print(f'ФИГУРЫ: {self.current_scene.figures}')
-        # print(f'ФОКУС: {self.current_scene.focusItem()}')
-        # print(f'ВЫБРАННЫЕ ИТЕМЫ: {self.current_scene.selectedItems()}')
-        # print(f'ЛЭЙБЛЫ: {self.current_scene.labels}')
-        # print(f'СПИСОК ИТЕМОВ: {self.current_scene.items()}')
-        # print(f'КОЛИЧЕСТВО ИТЕМОВ НА СЦЕНЕ: {len(self.current_scene.items())}')
-        # print(f'ИГРОКИ: {self.current_scene.first_team_players}')
+    def __repr__(self):
+        return f'<{self.__class__.__name__} (maximized: {self.isMaximized()}, x: {self.x()}, y: {self.y()},' \
+               f' width: {self.width()}, height: {self.height()}, toolbar: {self.toolBar_main.isVisible()},' \
+               f' toolbar_area: {self.toolBarArea(self.toolBar_main)}, theme: {self.current_theme}) at {hex(id(self))}>'
 
-        # print(f'current_action_lines: {self.current_scene.current_action_lines}')
-        print(f'allow_painting: {self.current_scene.allow_painting}')
-        # print(f'painting: {self.current_scene.painting}')
-        # print(f'mouse_pressed_painting: {self.current_scene.mouse_pressed_painting}')
-        # print(f'current_player: {self.current_scene.current_player}')
-        # print(f'start_pos: {self.current_scene.start_pos}')
-        # print(f'last_start_pos: {self.current_scene.last_start_pos}')
-        # print(f'current_line: {self.current_scene.current_line}')
-        # print(f'current_action_lines: {self.current_scene.current_action_lines}')
-        # print(f'action_number_temp: {self.current_scene.action_number_temp}')
-        # print(f'figures: {self.current_scene.figures}')
-        # print(f'current_figure: {self.current_scene.current_figure}')
-        # print(f'labels: {self.current_scene.labels}')
-        # print(f'current_label: {self.current_scene.current_label')
-        # print(f'pencil: {self.current_scene.pencil}')
+    def return_data(self):
+        return self.isMaximized(), self.toolBar_main.isVisible(), self.toolBarArea(self.toolBar_main), self.current_theme
 
 
 if __name__ == '__main__':
+    create_db_if_not_exists()
     app = QApplication(sys.argv)
-    play_creator = PlayCreator()
+    # screen_rect = app.primaryScreen().availableGeometry()
+    if os.path.exists(f'SplashScreen.jpg'):
+        splash = QSplashScreen(QPixmap('SplashScreen.jpg').scaled(1000, 700, Qt.AspectRatioMode.KeepAspectRatio), f=Qt.WindowStaysOnTopHint)
+    else:
+        splash = QSplashScreen(QPixmap('://Splash/SplashScreen.jpg').scaled(1000, 700, Qt.AspectRatioMode.KeepAspectRatio), f=Qt.WindowStaysOnTopHint)
+    frame = QFrame(parent=splash)
+    frame.setFixedSize(splash.width(), splash.height())
+    frame.setFrameShadow(QFrame.Shadow.Raised)
+    frame.setFrameShape(QFrame.Shape.Box)
+    frame.setLineWidth(0)
+    frame.setMidLineWidth(3)
+    splash.show()
+    sleep(2)
+    play_creator = PlayCreator(get_user_settings())
+    # x = (screen_rect.width() - play_creator.width()) // 2
+    # y = (screen_rect.height() - play_creator.height()) // 2
+    # play_creator.move(x, y)
     play_creator.show()
-
+    splash.finish(play_creator)
+    play_creator.user_log_in()
     sys.exit(app.exec())

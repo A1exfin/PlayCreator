@@ -1,5 +1,7 @@
 from PySide6.QtGui import QPen, QColor
 
+__all__ = ['FieldData']
+
 
 class FieldData:
     def __init__(self):

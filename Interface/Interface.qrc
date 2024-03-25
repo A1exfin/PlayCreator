@@ -1,0 +1,66 @@
+<RCC>
+  <qresource prefix="Themes">
+    <file>Dark_theme/block(dark_theme).png</file>
+    <file>Dark_theme/CheckBox-0(dark_theme).png</file>
+    <file>Dark_theme/CheckBox-1(dark_theme).png</file>
+    <file>Dark_theme/delete_actions(dark_theme).png</file>
+    <file>Dark_theme/delete_figures(dark_theme).png</file>
+    <file>Dark_theme/delete_labels(dark_theme).png</file>
+    <file>Dark_theme/delete_pencil(dark_theme).png</file>
+    <file>Dark_theme/ellipse(dark_theme).png</file>
+    <file>Dark_theme/erase(dark_theme).png</file>
+    <file>Dark_theme/label(dark_theme).png</file>
+    <file>Dark_theme/motion(dark_theme).png</file>
+    <file>Dark_theme/move(dark_theme).png</file>
+    <file>Dark_theme/new_playbook(dark_theme).png</file>
+    <file>Dark_theme/open(dark_theme).png</file>
+    <file>Dark_theme/open_from_server(dark_theme).png</file>
+    <file>Dark_theme/pencil(dark_theme).png</file>
+    <file>Dark_theme/PlayCreator_dark_theme.css</file>
+    <file>Dark_theme/presentation_mode(dark_theme).png</file>
+    <file>Dark_theme/RadioButton-0(dark_theme).png</file>
+    <file>Dark_theme/RadioButton-1(dark_theme).png</file>
+    <file>Dark_theme/rectangle(dark_theme).png</file>
+    <file>Dark_theme/route(dark_theme).png</file>
+    <file>Dark_theme/save(dark_theme).png</file>
+    <file>Dark_theme/save_all_like_picture(dark_theme).png</file>
+    <file>Dark_theme/save_as(dark_theme).png</file>
+    <file>Dark_theme/save_like_picture(dark_theme).png</file>
+    <file>Dark_theme/save_on_server(dark_theme).png</file>
+    <file>Dark_theme/tactic(dark128).png</file>
+    <file>Light_theme/block(light_theme).png</file>
+    <file>Light_theme/CheckBox-0(light_theme).png</file>
+    <file>Light_theme/CheckBox-1(light_theme).png</file>
+    <file>Light_theme/delete_actions(light_theme).png</file>
+    <file>Light_theme/delete_figures(light_theme).png</file>
+    <file>Light_theme/delete_labels(light_theme).png</file>
+    <file>Light_theme/delete_pencil(light_theme).png</file>
+    <file>Light_theme/ellipse(light_theme).png</file>
+    <file>Light_theme/erase(light_theme).png</file>
+    <file>Light_theme/label(light_theme).png</file>
+    <file>Light_theme/motion(light_theme).png</file>
+    <file>Light_theme/move(light_theme).png</file>
+    <file>Light_theme/new_playbook(light_theme).png</file>
+    <file>Light_theme/open(light_theme).png</file>
+    <file>Light_theme/open_from_server(light_theme).png</file>
+    <file>Light_theme/pencil(light_theme).png</file>
+    <file>Light_theme/PlayCreator_light_theme.css</file>
+    <file>Light_theme/presentation_mode(light_theme).png</file>
+    <file>Light_theme/RadioButton-0(light_theme).png</file>
+    <file>Light_theme/RadioButton-1(light_theme).png</file>
+    <file>Light_theme/rectangle(light_theme).png</file>
+    <file>Light_theme/route(light_theme).png</file>
+    <file>Light_theme/save(light_theme).png</file>
+    <file>Light_theme/save_all_like_picture(light_theme).png</file>
+    <file>Light_theme/save_as(light_theme).png</file>
+    <file>Light_theme/save_like_picture(light_theme).png</file>
+    <file>Light_theme/save_on_server(light_theme).png</file>
+    <file>Light_theme/tactic(light128).png</file>
+  </qresource>
+  <qresource prefix="Splash">
+    <file>SplashScreen.jpg</file>
+  </qresource>
+  <qresource prefix="Cursors">
+    <file>Cursors/eraser.cur</file>
+  </qresource>
+</RCC>

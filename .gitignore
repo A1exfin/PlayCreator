@@ -5,4 +5,5 @@
 /venv/
 /ui to py_2.bat
 /test.py
-/Схема БД/
+/PlayCreator_dialog.ui
+/PlayCreator.db
